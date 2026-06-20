@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { STALE_MS, SIGNAL_TTL_MS } from "@/lib/presence";
-import type { PollResponse } from "@/lib/types";
+import type { PollResponse, PeerDot } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
   // 1) Heartbeat — refresh lastSeen for the caller.
   await prisma.presence.updateMany({
-    where: {},
+    where: { id },
     data: { lastSeen: new Date(now) },
   });
 
@@ -49,18 +49,18 @@ export async function GET(request: NextRequest) {
   });
   if (inbox.length > 0) {
     await prisma.signal.deleteMany({
-      where: { id: { in: inbox.map((s) => s.id) } },
+      where: { id: { in: inbox.map((s: { id: string }) => s.id) } },
     });
   }
 
   const response: PollResponse = {
-    peers: peers.map((p) => ({
+    peers: peers.map((p: PeerDot) => ({
       id: p.id,
       lat: p.lat,
       lng: p.lng,
       busy: p.busy,
     })),
-    signals: inbox.map((s) => ({
+    signals: inbox.map((s: { id: string; fromId: string; toId: string; type: string; payload: string | null; createdAt: Date }) => ({
       id: s.id,
       fromId: s.fromId,
       toId: s.toId,

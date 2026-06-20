@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Swal from "sweetalert2";
 
 export interface ChatMessage {
   id: number;
   mine: boolean;
   text: string;
+  fileId?: string;
+  isOutgoing?: boolean;
+  isIncoming?: boolean;
+  downloadUrl?: string;
+  isImage?: boolean;
 }
 
 export default function ChatPanel({
@@ -15,6 +21,8 @@ export default function ChatPanel({
   onSend,
   onStartVideo,
   onEnd,
+  onSendFile,
+  onCancelFile,
 }: {
   messages: ChatMessage[];
   connected: boolean;
@@ -22,9 +30,81 @@ export default function ChatPanel({
   onSend: (text: string) => void;
   onStartVideo: () => void;
   onEnd: () => void;
+  onSendFile: (file: File) => void;
+  onCancelFile: (fileId: string) => void;
 }) {
   const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Block malicious formats comprehensively (Windows/Mac/Linux executables & scripts)
+    const badExts = [
+      ".exe", ".com", ".dll", ".sys", ".cpl", ".ocx", ".scr", ".pif", ".msi", ".msp", 
+      ".bat", ".cmd", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh", ".ps1", ".ps1xml", 
+      ".ps2", ".ps2xml", ".psc1", ".psc2", ".msh", ".msh1", ".msh2", ".mshxml", ".msh1xml", 
+      ".msh2xml", ".scf", ".lnk", ".inf", ".reg", 
+      ".app", ".dmg", ".pkg", ".appimage", ".run", ".bin", ".elf", ".sh", ".bash", ".zsh", ".csh", ".tcsh", ".ksh"
+    ];
+    const nameLower = file.name.toLowerCase();
+    if (badExts.some(ext => nameLower.endsWith(ext))) {
+      Swal.fire({
+        icon: "error",
+        title: "Security Risk",
+        text: "This file type is not allowed for security reasons.",
+        background: "#18181b",
+        color: "#f4f4f5",
+        confirmButtonColor: "#3f3f46",
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    let fileToSend = file;
+
+    // Reject non-MP4/WebM videos (standard/globally recognized formats)
+    if (file.type.startsWith("video/") && !["video/mp4", "video/webm"].includes(file.type)) {
+      Swal.fire({
+        icon: "warning",
+        title: "Unsupported Format",
+        text: "Please use a standard or globally recognized video format (like MP4 or WebM).",
+        background: "#18181b",
+        color: "#f4f4f5",
+        confirmButtonColor: "#3f3f46",
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    // Convert images to JPG
+    if (file.type.startsWith("image/") && file.type !== "image/jpeg" && file.type !== "image/gif") {
+      try {
+        const bmp = await createImageBitmap(file);
+        const canvas = document.createElement("canvas");
+        canvas.width = bmp.width;
+        canvas.height = bmp.height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(bmp, 0, 0);
+          const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+          if (blob) {
+            // Replace extension with .jpg
+            const baseName = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name;
+            fileToSend = new File([blob], `${baseName}.jpg`, { type: "image/jpeg" });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to convert image to JPG:", err);
+        // fallback to sending original file if conversion fails
+      }
+    }
+
+    onSendFile(fileToSend);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -70,26 +150,105 @@ export default function ChatPanel({
             Say hello. Messages are peer-to-peer and never stored.
           </p>
         )}
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex ${m.mine ? "justify-end" : "justify-start"}`}
-          >
-            <span
-              className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
-                m.mine
-                  ? "bg-emerald-400 text-zinc-950"
-                  : "bg-zinc-800 text-zinc-100"
-              }`}
+        {messages.map((m) => {
+          const isImageFile = m.downloadUrl && m.isImage;
+          const isGenericFile = m.downloadUrl && !m.isImage;
+
+          return (
+            <div
+              key={m.id}
+              className={`flex ${m.mine ? "justify-end" : "justify-start"} mb-2`}
             >
-              {m.text}
-            </span>
-          </div>
-        ))}
+              <span
+                className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
+                  m.mine
+                    ? "bg-emerald-400 text-zinc-950"
+                    : "bg-zinc-800 text-zinc-100"
+                }`}
+              >
+                {/* Progress / Loading UI */}
+                {m.isOutgoing && m.fileId && !m.downloadUrl && (
+                  <div className="flex flex-col gap-1">
+                    <span>{m.text}</span>
+                    <button
+                      type="button"
+                      onClick={() => onCancelFile(m.fileId!)}
+                      className="mt-1 text-xs text-red-500 font-bold self-end hover:underline"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+
+                {/* Simple static spinner for incoming file (Telegram style) */}
+                {m.isIncoming && m.fileId && !m.downloadUrl && !m.text.includes("canceled") && (
+                  <div className="flex items-center gap-2">
+                    <span className="animate-spin inline-block w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full" />
+                    <span>{m.text}</span>
+                  </div>
+                )}
+
+                {/* Render regular message text */}
+                {!m.isOutgoing && !m.isIncoming && !m.downloadUrl && <span>{m.text}</span>}
+
+                {/* Complete Image Preview CARD */}
+                {isImageFile && (
+                  <div className="flex flex-col gap-2">
+                    <img
+                      src={m.downloadUrl}
+                      alt="P2P shared pic"
+                      className="max-h-60 max-w-full rounded-lg object-contain border border-zinc-700 bg-black cursor-pointer"
+                      onClick={() => window.open(m.downloadUrl, "_blank")}
+                    />
+                    <a
+                      href={m.downloadUrl}
+                      download={m.text.replace("📁 File ready: ", "")}
+                      className="text-xs text-emerald-400 hover:underline flex items-center gap-1 mt-1 justify-end font-semibold"
+                    >
+                      📥 Save Image
+                    </a>
+                  </div>
+                )}
+
+                {/* Complete Generic File CARD */}
+                {isGenericFile && (
+                  <div className="flex items-center gap-3 p-1">
+                    <span className="text-xl">📄</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate text-xs">{m.text.replace("📁 File ready: ", "")}</p>
+                      <a
+                        href={m.downloadUrl}
+                        download={m.text.replace("📁 File ready: ", "")}
+                        className="text-xs text-emerald-400 hover:underline font-bold"
+                      >
+                        Download File
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </span>
+            </div>
+          );
+        })}
         <div ref={endRef} />
       </div>
 
-      <form onSubmit={submit} className="flex gap-2 border-t border-zinc-800 p-3">
+      <form onSubmit={submit} className="flex gap-2 border-t border-zinc-800 p-3 items-center">
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={!connected}
+          className="p-2 rounded-full border border-zinc-700 hover:border-zinc-500 disabled:opacity-40 text-zinc-300 flex items-center justify-center cursor-pointer"
+          title="Attach File"
+        >
+          📎
+        </button>
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -100,7 +259,7 @@ export default function ChatPanel({
         <button
           type="submit"
           disabled={!connected || !draft.trim()}
-          className="rounded-full bg-emerald-400 px-4 py-2 text-sm font-semibold text-zinc-950 disabled:opacity-40"
+          className="rounded-full bg-emerald-400 px-4 py-2 text-sm font-semibold text-zinc-950 disabled:opacity-40 cursor-pointer"
         >
           Send
         </button>

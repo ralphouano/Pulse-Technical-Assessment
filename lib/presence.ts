@@ -7,4 +7,4 @@ export const STALE_MS = 15_000;
 export const SIGNAL_TTL_MS = 60_000;
 
 // Client poll interval. Kept here so client + server reason about the same cadence.
-export const POLL_INTERVAL_MS = 1_500;
+export const POLL_INTERVAL_MS = 300;
