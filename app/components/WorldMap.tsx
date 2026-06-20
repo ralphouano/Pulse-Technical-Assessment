@@ -179,8 +179,12 @@ export default function WorldMap({
       )}
 
       {/* Online count */}
-      <div className="absolute bottom-4 left-4 rounded-full bg-zinc-900/80 px-3 py-1.5 text-xs text-zinc-300 backdrop-blur">
-        {peers.length} online
+      <div className="absolute top-6 left-6 z-10 flex items-center gap-2.5 rounded-full border border-zinc-800/80 bg-zinc-950/80 px-4.5 py-2 text-sm md:text-base font-semibold text-zinc-100 shadow-xl backdrop-blur-md">
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+        </span>
+        <span>{peers.length + 1} online</span>
       </div>
     </div>
   );
