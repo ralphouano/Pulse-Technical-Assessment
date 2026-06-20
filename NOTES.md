@@ -1,70 +1,64 @@
-# Technical Assessment Notes: Pulse
+# Developer Notes — Pulse
 
-This document lists the work I did during this assessment. It is organized by the four phases requested, explaining what I fixed, the changes I made, and my choices.
+Here are the notes on what I fixed and built during this assessment, grouped by the requested phases.
 
 ---
 
 ## Phase 1: Make it run
 
-### What was broken & How I fixed it
-My first goal was to get the app working reliably by fixing bugs in the connection logic.
-- **Global Heartbeat Reset:** I found that inactive users stayed on the map forever. In `app/api/poll/route.ts`, the database query was updating the `lastSeen` timestamp for every user instead of just the caller. I fixed this by passing the caller's session ID into the `where` filter.
-- **Busy Connection Lock:** Users got stuck as "busy" after hanging up. In `app/api/signal/route.ts`, the busy flag was only reset on `"decline"` signals. I updated it to also clear the busy flag when an `"end"` signal is received.
-- **WebRTC Race Condition:** Connections failed and got stuck in "Connecting...". In `lib/webrtc.ts`, the `handleSignal` function was setting ICE candidates before applying the remote description, which caused the candidates to be ignored. I changed the order to set the remote description first.
-- **Chat Message Bug:** Text messages were not displaying. The sender was sending `{ t: "msg", text }`, but the receiver was looking for `{ t: "chat" }`. I updated the sender to use the `"chat"` type.
+### Bug Fixes
+My main goal was getting connection requests and chat working properly.
+- **Global Heartbeat Reset:** I noticed inactive users stayed stuck on the map. The heartbeat handler in `app/api/poll/route.ts` was updating `lastSeen` for every database record instead of filtering by the caller's session ID. I added a `where: { id }` constraint to the query.
+- **Busy Connection Lock:** Hanging up left users locked in a "busy" status. The API in `app/api/signal/route.ts` was only resetting this status on connection declines. I updated it to also reset the user's status when an `"end"` signal is received.
+- **WebRTC Race Condition:** Connections got stuck in "Connecting..." indefinitely. In `lib/webrtc.ts`, `handleSignal` tried to add remote ICE candidates before the session description was set. I reordered it to apply the description first and buffer candidate additions.
+- **Chat Message Bug:** Chat messages sent over WebRTC were not rendering. The sender was dispatching packet type `msg` but the receiver was listening for type `chat`. I aligned both to use `chat`.
 
 ---
 
 ## Phase 2: Make it good
 
-### What I changed & The thinking behind it
-To make the app easy to use, look nice, and run reliably, I improved the layout, styles, and added audio feedback.
-- **Video Layout Redesign:** I moved the video panel from a full-screen overlay into a split-screen view. *Thinking:* This lets users keep typing in the chat panel while on a video call, instead of being locked out of the chat. I also added buttons to mute the mic, turn off the camera, and end the call.
-- **Ringtone & Audio Feedback:** I added sound effects using the Web Audio API. When you get a call or connection request, it plays a continuous looping sound. *Thinking:* A single beep is too easy to miss. The loop behaves like a regular phone call. I made the ringtone fade out gently when accepted or declined so there are no sudden clicks or pops. I also added simple sound effects for clicks (tapping map dots, clicking mic/camera buttons), sound cues when you get a chat message, when a connection succeeds, and when a call ends. Since web browsers block audio from playing automatically, the audio starts only after the user clicks the initial location button.
-- **Custom Modals:** I replaced the browser's default `alert()` popups with styled dark-mode popups using `SweetAlert2`. *Thinking:* Standard browser popups look outdated and disrupt the app's look.
-- **Chat and Video Layout Positioning:** I positioned the Chat Panel on the right and the Video Panel on the left. *Thinking:* Placing the chat panel on the right aligns with standard messaging app conventions (making it feel natural and familiar), while the left-side video panel gives enough screen space to view the stranger and the interactive world map at the same time.
-- **UI Styling Updates:** I updated the styling to use clean gradients, rounded borders, and semi-transparent dark backgrounds. I replaced all text emojis (`📍`, `📎`, etc.) with clean SVG icons using the `lucide-react` library. The user's own marker on the map is now a pulsing blue dot, and the loading screens have standard spinning indicators. *Thinking:* Custom icons and markers make the app look finished and custom-made, rather than relying on browser defaults.
+### Layout & Audio Adjustments
+I updated the layout, added micro-interactions, and added sound cues.
+- **Video Layout Redesign:** I moved the video call interface from a full-screen block to a split-screen view. This lets you keep typing in the chat panel while talking on video. I also added buttons to toggle audio/video and hang up.
+- **Ringtone & Audio Feedback:** I built a synthesizer helper using the Web Audio API. It plays a looping phone-like ringtone for connection requests and video calls, plus simple chime sound effects for text messages, connection success, disconnections, clicks, and errors. To bypass browser auto-play blocks, it starts when the user shares their location. I also made ringtones fade out smoothly to avoid pops.
+- **Modals:** I swapped browser alert prompts with custom styled dark-mode popups using `SweetAlert2` so they blend with the dark interface.
+- **Panel Alignment:** I placed the chat panel on the right side of the screen and the video panel on the left. This feels more familiar like standard messaging apps and leaves space for the map.
+- **UI Styling:** I updated the styling to use subtle dark gradients and rounded borders. I replaced text emojis with SVG icons from `lucide-react`, made the self marker a pulsing blue dot, and added standard spin loaders.
 
 ---
 
 ## Phase 3: Make it secure
 
-### Issues found, Ranking, and Fixes
-Once the app was running, I checked for security problems, data leaks, and database performance issues.
+### Security & Performance
+I audited the API, file-sharing flows, and DB performance for exploits.
 
-1. **High Priority: API Authorization (Critical IDOR)**
-   - *Issue:* The API used the public UUID `id` as both a routing identifier and an authorization token. Since `/api/poll` broadcasted every user's `id` to the map, anyone could read these IDs and use them to intercept messages or force disconnections.
-   - *Fix:* I added a second token. I added a private `secret` to the database schema and updated the frontend to send this `sessionSecret` with every API request. The server now checks the secret before changing any data, which stops attackers from making fake requests.
-2. **High Priority: Malicious File Execution via Chat**
-   - *Issue:* Because users can send files directly to each other, someone could send harmful files (like `.exe` or `.bat`) that a receiver might run.
-   - *Fix:* I added a list of forbidden file extensions in `ChatPanel.tsx` to block Windows, Mac, and Linux scripts and executable files before they are sent.
-3. **Medium Priority: Database Inbox Bloat**
-   - *Issue:* Old signal data left in the database could slow down polling queries over time.
-   - *Fix:* I made sure that old signal data is cleaned up from the database every time a user polls, deleting everything older than 60 seconds.
-4. **Critical Priority: Location Triangulation via Rapid Joins**
-   - *Issue:* The map shifts location coordinates by 1-3km to protect privacy, but this shift was recalculated on every update. An attacker could update their location repeatedly to get many different offsets and average them out to find the user's real location.
-   - *Fix:* I changed the logic in `app/api/join/route.ts` so the random offset is calculated only once per session instead of every time the user updates. This stops triangulation.
-5. **Low Priority: IP Address Leakage via ICE**
-   - *Issue:* Using Google STUN servers exposes a user's IP address to their peer.
-   - *Fix:* I left this as-is for the assessment, but in a real release, I would route WebRTC traffic through a proxy server (a TURN server) and configure it to only use relay paths to hide IP addresses.
+1. **API Auth Check (Critical IDOR):**
+   - *Symptom:* The database used public user UUIDs as both lookup keys and authorization tokens. Since `/api/poll` broadcasted all active user IDs, anyone could intercept signals, spoof requests, or force connections closed.
+   - *Fix:* I added a private `secret` column to the database. The client generates this `sessionSecret` on load and passes it in headers/payloads. The server verifies this secret before processing updates or polling requests.
+2. **Malicious File Upload Filtering:**
+   - *Symptom:* Users could send executable files or script files directly to strangers.
+   - *Fix:* I added validation in `ChatPanel.tsx` that blocks common Windows, macOS, and Linux scripts and executables (like `.exe`, `.dmg`, `.sh`, `.bat`) from being uploaded.
+3. **Database Signaling Bloat:**
+   - *Symptom:* Signal records remained in the DB, causing size to grow and slow down fast polling.
+   - *Fix:* I added a cleanup script inside the poll handler that deletes signals older than 60 seconds on every poll tick.
+4. **Triangulation via Location Offset Regeneration:**
+   - *Symptom:* The map randomly offsets location coordinates by 1-3km to protect privacy, but this offset was recalculated on every poll, allowing someone to average coordinates and find a user's real house.
+   - *Fix:* I modified `app/api/join/route.ts` to calculate the random coordinates offset only once per session, returning static coordinates for the user.
+5. **IP Leakage over STUN:**
+   - *Symptom:* Google's public STUN servers reveal peer IP addresses to each other.
+   - *Fix:* I documented this as a low-priority risk. A production deployment should configure a relay TURN server and disable direct host candidates to completely hide user IPs.
 
-### Performance Audit
-1. **High Priority: Over-Aggressive Database Polling vs. Connection Latency**
-   - *Issue:* The database was being polled every 300ms, which would overload the server. However, slowing it down to 1800ms made WebRTC connections take too long to connect.
-   - *Fix:* I changed the frontend to adjust how fast it polls the database. When trying to connect, it polls quickly (every 300ms) to make the WebRTC connection start fast. Once connected or when just looking at the map, it slows down to poll every 1800ms. This keeps connection times short without overloading the database.
-2. **Medium Priority: React Re-render Thrashing**
-   - *Issue:* The polling loop updated state on every tick, which forced the map to redraw itself constantly even when nothing changed.
-   - *Fix:* I added a check to skip updating the React state if the peer data is the same as the previous poll.
+### Performance Tweaks
+- **Polling Loop Throttle:** The client was polling the DB every 300ms. I throttled this to 1800ms by default, but set it to dynamically scale up to 300ms only during active signal negotiation so connection requests are still fast without hammering the server.
+- **State Update Filter:** The polling tick previously forced a React map re-render on every request. I added a JSON serialization comparison to skip state updates if peer coordinates have not changed.
 
 ---
 
 ## Phase 4: Make it better
 
-### What I built, Why, and Next Steps
-I added a file and image sharing feature that sends files directly between users using the WebRTC data channel.
-
-- **What I built:** I added a file attachment button (`📎`) and support for dragging and dropping files directly onto the chat window to share them. Large files are split into small 16KB parts and sent with progress bars. Sent and received images and videos (MP4, WebM) show up as preview thumbnails and players directly in the chat, and other files show up as download links. To stay safe, sent images are converted to JPG in the background, and videos are limited to standard formats (`mp4` and `webm`).
-- **Why:** Sharing photos and documents directly between browsers makes the chat much more useful. To make sure large files don't block text messages while sending, I added a queue that mixes file parts and text messages so text always goes through immediately.
-- **Fixed Half-Loaded / Stuck File transfers:** I fixed a bug where file transfers larger than 64KB would freeze or get cut in half. The WebRTC data channel has an internal buffer limit of 64KB, and if we queue too many parts at once, the browser stops sending. I fixed this by setting an explicit buffer limit (`bufferedAmountLowThreshold` to 64KB) and adding an event listener (`onbufferedamountlow`) to automatically resume sending file parts once the buffer has cleared. I also added a check on the receiving side to verify that all file parts have arrived before trying to assemble and show the final file preview.
-- **Image Slider Modal & Styling Fixes:** I fixed the issue where the "Save Image" and "Save Video" text was invisible to the receiver due to a color contrast issue with the message bubble. Clicking an image now opens a custom, interactive full-screen preview modal that supports mouse clicks and keyboard arrow bindings (`ArrowLeft`, `ArrowRight`, `Escape`) to browse through all images in the chat history. All of this is done on the client-side using browser memory without any third-party services or server storage.
-- **Repositioned and Restyled User Counter:** I moved the online user counter from the bottom-left corner to the top-left corner, made the typography larger and clearer, and added an active pulsing green dot to represent real-time connection status. I also adjusted the math to correctly display the total count of online users (including the current user, so it says "1 online" instead of "0 online" when you are the only one on the map).
+### File Sharing & Image Slider Modal
+I implemented peer-to-peer file sharing and visual improvements.
+- **P2P File Sharing:** I added a file attachment button and support for dragging and dropping files on the chat box. Large files are split into 16KB parts, converted to base64, and sent through the WebRTC data channel with progress updates. Standard images are converted to JPG for safety, and video files are restricted to MP4/WebM.
+- **Reliable Congestion Control:** Fixed large file transfers (>64KB) freezing. I set `dc.bufferedAmountLowThreshold` to 64KB and added an `onbufferedamountlow` event handler to pause/resume sending chunks, keeping the queue flow healthy. I also added a check on the receiver to verify all chunks arrived before assembling the file.
+- **Image Slider Preview Modal:** Clicking an image in chat now opens a full-screen preview. I added keyboard arrow bindings (`ArrowLeft`, `ArrowRight`, `Escape`) to cycle through all viewable images in the active session without using external APIs or servers.
+- **Layout Adjustments:** Moved the preview modal to the page root level so it centers correctly over the entire screen instead of being trapped by the chat panel's blur filters. I also moved the user counter to the top-left, enlarged it, added a pulsing green dot, and corrected the count math (`peers.length + 1`) to include the user.
