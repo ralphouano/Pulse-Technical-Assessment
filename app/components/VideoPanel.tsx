@@ -28,8 +28,10 @@ export default function VideoPanel({
   useEffect(() => {
     const el = remoteRef.current;
     if (!el || !remoteStream) return;
-    el.srcObject = remoteStream;
-    el.play().catch(() => {});
+    if (el.srcObject !== remoteStream) {
+      el.srcObject = remoteStream;
+      el.play().catch(() => {});
+    }
   }, [remoteStream]);
 
   // Audio playback through a dedicated <audio> element — far more reliable
@@ -37,11 +39,15 @@ export default function VideoPanel({
   useEffect(() => {
     const el = audioRef.current;
     if (!el || !remoteStream) return;
-    el.srcObject = remoteStream;
-    el.volume = 1;
-    el.play()
-      .then(() => console.log("[AudioEl] play() succeeded"))
-      .catch((err) => console.error("[AudioEl] play() FAILED:", err));
+    if (el.srcObject !== remoteStream) {
+      el.srcObject = remoteStream;
+      el.volume = 1;
+      el.play().catch((err) => {
+        if (err.name !== "AbortError") {
+          console.error("[AudioEl] play() FAILED:", err);
+        }
+      });
+    }
   }, [remoteStream]);
 
   function toggleMic() {

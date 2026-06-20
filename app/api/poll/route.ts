@@ -24,10 +24,15 @@ export async function GET(request: NextRequest) {
   const signalCutoff = new Date(now - SIGNAL_TTL_MS);
 
   // 1) Heartbeat — refresh lastSeen for the caller.
-  const updated = await prisma.presence.updateMany({
-    where: { id, secret },
-    data: { lastSeen: new Date(now) },
-  });
+  let updated;
+  try {
+    updated = await prisma.presence.updateMany({
+      where: { id, secret },
+      data: { lastSeen: new Date(now) },
+    });
+  } catch (e: any) {
+    return Response.json({ error: "prisma error", message: e.message }, { status: 500 });
+  }
 
   // If no rows were updated, the ID doesn't exist or the secret is wrong.
   if (updated.count === 0) {
