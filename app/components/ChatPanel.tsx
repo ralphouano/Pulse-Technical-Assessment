@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { Paperclip, FileText, Download, Send, Video, PhoneOff, Upload } from "lucide-react";
 import { playFeedback } from "@/lib/audio";
-import { ALL_SAFE_EXTS, checkIsVideo, checkIsImage } from "@/lib/file";
+import { ALL_SAFE_EXTS, checkIsVideo, checkIsImage, getSafeMimeType } from "@/lib/file";
 
 export interface ChatMessage {
   id: number;
@@ -100,7 +100,8 @@ export default function ChatPanel({
       return;
     }
 
-    let fileToSend = file;
+    const safeMimeType = getSafeMimeType(file.name);
+    let fileToSend = file.type === safeMimeType ? file : new File([file], file.name, { type: safeMimeType });
 
     // Convert HEIC/HEIF images to JPG dynamically
     if (nameLower.endsWith(".heic") || nameLower.endsWith(".heif")) {

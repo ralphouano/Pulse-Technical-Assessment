@@ -13,7 +13,7 @@ import { PeerSession, type DescType, type PeerControl } from "@/lib/webrtc";
 import { POLL_INTERVAL_MS } from "@/lib/presence";
 import { type PeerDot, type SignalMsg } from "@/lib/types";
 import { startConnectionRing, startVideoRing, stopRing, playMessageBell, playFeedback } from "@/lib/audio";
-import { checkIsVideo, checkIsImage } from "@/lib/file";
+import { checkIsVideo, checkIsImage, getSafeMimeType, verifyMagicBytes } from "@/lib/file";
 
 type Conn =
   | { kind: "idle" }
@@ -203,6 +203,44 @@ export default function Home() {
           return;
         }
 
+        // Verify Magic Bytes for security (against polyglots / MIME spoofing)
+        const firstChunk = file.chunks[0];
+        if (firstChunk) {
+          try {
+            const decoded = atob(firstChunk);
+            const headerBytes = new Uint8Array(Math.min(16, decoded.length));
+            for (let i = 0; i < headerBytes.length; i++) {
+              headerBytes[i] = decoded.charCodeAt(i);
+            }
+            const dotIdx = file.name.lastIndexOf(".");
+            const ext = dotIdx !== -1 ? file.name.substring(dotIdx).toLowerCase() : "";
+            if (!verifyMagicBytes(headerBytes, ext)) {
+              console.error(`[WebRTC] File verification failed. Magic byte mismatch for extension: ${ext}`);
+              delete incomingFilesRef.current[fileId];
+
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.fileId === fileId
+                    ? { ...msg, text: `File blocked (extension/content signature mismatch).`, isIncoming: false }
+                    : msg
+                )
+              );
+
+              Swal.fire({
+                icon: "error",
+                title: "Security Threat Blocked",
+                text: "The incoming file's content signature does not match its extension.",
+                background: "#18181b",
+                color: "#f4f4f5",
+                confirmButtonColor: "#3f3f46",
+              });
+              return;
+            }
+          } catch (err) {
+            console.error("[WebRTC] Failed to verify magic bytes:", err);
+          }
+        }
+
         // Reconstitute Base64 chunks back to binary file blob
         const binaryStrings = file.chunks.map(chunk => atob(chunk));
         const byteArrays = binaryStrings.map(str => {
@@ -212,10 +250,9 @@ export default function Home() {
           }
           return arr;
         });
-        const blob = new Blob(byteArrays, { type: file.mimeType });
+        const safeMimeType = getSafeMimeType(file.name);
+        const blob = new Blob(byteArrays, { type: safeMimeType });
         const downloadUrl = URL.createObjectURL(blob);
-
-
 
         // Replace the incoming file system announcement with the download card
         setMessages((prev) =>
@@ -225,8 +262,8 @@ export default function Home() {
                   ...msg, 
                   text: `File ready: ${file.name}`, 
                   downloadUrl, 
-                  isImage: checkIsImage(file.name, file.mimeType),
-                  isVideo: checkIsVideo(file.name, file.mimeType),
+                  isImage: checkIsImage(file.name, safeMimeType),
+                  isVideo: checkIsVideo(file.name, safeMimeType),
                   isIncoming: false
                 }
               : msg
@@ -375,18 +412,21 @@ export default function Home() {
     if (!peerRef.current) return;
     const fileId = crypto.randomUUID();
 
+    // Sanitize MIME type based on extension mapping for outbound security
+    const safeMimeType = getSafeMimeType(file.name);
+    const sanitizedFile = file.type === safeMimeType ? file : new File([file], file.name, { type: safeMimeType });
 
     // Add upload card inside sender's chat messages state
-    const downloadUrl = URL.createObjectURL(file);
-    const isImage = checkIsImage(file.name, file.type);
-    const isVideo = checkIsVideo(file.name, file.type);
+    const downloadUrl = URL.createObjectURL(sanitizedFile);
+    const isImage = checkIsImage(sanitizedFile.name, safeMimeType);
+    const isVideo = checkIsVideo(sanitizedFile.name, safeMimeType);
 
     setMessages((prev) => [
       ...prev,
       { 
         id: msgId.current++, 
         mine: true, 
-        text: `Sending ${file.name}...`, 
+        text: `Sending ${sanitizedFile.name}...`, 
         fileId, 
         isOutgoing: true,
         downloadUrl,
@@ -395,7 +435,7 @@ export default function Home() {
       }
     ]);
 
-    peerRef.current.sendFile(file, fileId, (sentBytes) => {
+    peerRef.current.sendFile(sanitizedFile, fileId, (sentBytes) => {
       const progress = Math.round((sentBytes / file.size) * 100);
 
       // Dynamically update the upload percentage text

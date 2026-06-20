@@ -35,9 +35,12 @@ I audited the API, file-sharing flows, and DB performance for exploits.
 1. **API Auth Check (Critical IDOR):**
    - *Symptom:* The database used public user UUIDs as both lookup keys and authorization tokens. Since `/api/poll` broadcasted all active user IDs, anyone could intercept signals, spoof requests, or force connections closed.
    - *Fix:* I added a private `secret` column to the database. The client generates this `sessionSecret` on load and passes it in headers/payloads. The server verifies this secret before processing updates or polling requests.
-2. **Malicious File Upload Filtering:**
-   - *Symptom:* Users could send executable files or script files directly to strangers.
-   - *Fix:* I added validation in `ChatPanel.tsx` that blocks common Windows, macOS, and Linux scripts and executables (like `.exe`, `.dmg`, `.sh`, `.bat`) from being uploaded.
+2. **Malicious File Upload Filtering & MIME-type Polyglot Security:**
+   - *Symptom:* Users could send executable files, scripts, or MIME-type polyglot files (e.g., an HTML/JS file renamed to `.png`) directly to strangers, potentially triggering Cross-Site Scripting (XSS) within the application origin if opened.
+   - *Fix:*
+     - I replaced extension blacklists with a strict whitelist (`safeExts`) covering only document, image, video, and archive extensions.
+     - On file transmission and receipt, both clients override the MIME type with a hardcoded map matching the file's extension. This enforces safe MIME types like `image/jpeg` or `application/octet-stream` (neutralizing HTML/SVG rendering execution).
+     - On file reconstruction, the receiver checks the first 16 bytes of the file content against magic byte signatures matching the expected extension. If signature mismatch is detected (e.g. an HTML payload inside a file ending with `.png`), the transfer is blocked and flagged as a security threat.
 3. **Database Signaling Bloat:**
    - *Symptom:* Signal records remained in the DB, causing size to grow and slow down fast polling.
    - *Fix:* I added a cleanup script inside the poll handler that deletes signals older than 60 seconds on every poll tick.
