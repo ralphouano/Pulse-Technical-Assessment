@@ -134,6 +134,27 @@ export default function Home() {
         const file = incomingFilesRef.current[fileId];
         if (!file) return;
 
+        const expectedChunks = Math.ceil(file.size / 16384);
+        let hasMissing = false;
+        for (let i = 0; i < expectedChunks; i++) {
+          if (file.chunks[i] === undefined) {
+            hasMissing = true;
+            break;
+          }
+        }
+
+        if (hasMissing) {
+          console.error(`[WebRTC] File transfer incomplete. Expected ${expectedChunks} chunks, but received ${file.chunks.filter(Boolean).length}`);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.fileId === fileId
+                ? { ...msg, text: "File transfer failed (incomplete chunks).", isIncoming: false }
+                : msg
+            )
+          );
+          return;
+        }
+
         // Reconstitute Base64 chunks back to binary file blob
         const binaryStrings = file.chunks.map(chunk => atob(chunk));
         const byteArrays = binaryStrings.map(str => {

@@ -94,6 +94,10 @@ export class PeerSession {
   }
 
   private wireDataChannel(dc: RTCDataChannel) {
+    dc.bufferedAmountLowThreshold = 65536;
+    dc.onbufferedamountlow = () => {
+      this.processSendQueue();
+    };
     dc.onopen = () => this.cb.onChannelOpen();
     dc.onmessage = (e) => {
       try {
@@ -219,7 +223,14 @@ export class PeerSession {
 
     const readNext = () => {
       if (offset >= file.size) {
-        this.safeSend({ t: "file-end", fileId });
+        this.fileSendQueue.push({
+          fileId,
+          chunkIndex: -1, // Sentinel value representing file-end
+          data: "",
+        });
+        if (!this.isSendingQueue) {
+          this.processSendQueue();
+        }
         return;
       }
       const slice = file.slice(offset, offset + chunkSize);
@@ -283,23 +294,23 @@ export class PeerSession {
     // Congestion control: if buffer is full (> 64KB), wait for bufferedamountlow
     const BUFFER_LIMIT = 65536;
     if (dc.bufferedAmount > BUFFER_LIMIT) {
-      const onLow = () => {
-        dc.removeEventListener("bufferedamountlow", onLow);
-        this.processSendQueue();
-      };
-      dc.addEventListener("bufferedamountlow", onLow);
       return;
     }
 
     const nextItem = this.fileSendQueue.shift();
     if (nextItem) {
-      this.sendingFileId = nextItem.fileId;
-      this.safeSend({
-        t: "file-chunk",
-        fileId: nextItem.fileId,
-        chunkIndex: nextItem.chunkIndex,
-        data: nextItem.data,
-      });
+      if (nextItem.chunkIndex === -1) {
+        this.sendingFileId = null;
+        this.safeSend({ t: "file-end", fileId: nextItem.fileId });
+      } else {
+        this.sendingFileId = nextItem.fileId;
+        this.safeSend({
+          t: "file-chunk",
+          fileId: nextItem.fileId,
+          chunkIndex: nextItem.chunkIndex,
+          data: nextItem.data,
+        });
+      }
     }
 
     // Schedule next chunk using micro-delay to let CPU breathe and interleave chats
