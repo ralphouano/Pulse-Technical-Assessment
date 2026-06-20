@@ -475,7 +475,12 @@ export default function Home() {
           return;
         }
       }
-      if (active) timer = setTimeout(tick, POLL_INTERVAL_MS);
+      if (active) {
+        // Adaptive polling: poll fast (300ms) during signaling to ensure snappy connections,
+        // but slow down (POLL_INTERVAL_MS) when idle or fully connected to save the DB.
+        const isNegotiating = ["requesting", "incoming", "connecting"].includes(connRef.current.kind);
+        timer = setTimeout(tick, isNegotiating ? 300 : POLL_INTERVAL_MS);
+      }
     };
     tick();
 
