@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
-import { Paperclip, FileText, Download, Send, Video, PhoneOff, Upload, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Paperclip, FileText, Download, Send, Video, PhoneOff, Upload } from "lucide-react";
 import { playFeedback } from "@/lib/audio";
 
 export interface ChatMessage {
@@ -26,6 +26,7 @@ export default function ChatPanel({
   onEnd,
   onSendFile,
   onCancelFile,
+  onImageClick,
 }: {
   messages: ChatMessage[];
   connected: boolean;
@@ -35,6 +36,7 @@ export default function ChatPanel({
   onEnd: () => void;
   onSendFile: (file: File) => void;
   onCancelFile: (fileId: string) => void;
+  onImageClick: (id: number) => void;
 }) {
   const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -42,47 +44,7 @@ export default function ChatPanel({
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
 
-  const [activeImageId, setActiveImageId] = useState<number | null>(null);
 
-  const viewableImages = messages.filter(
-    (m) => m.downloadUrl && !m.isOutgoing && !m.isIncoming && m.isImage
-  );
-
-  const activeIndex = viewableImages.findIndex((m) => m.id === activeImageId);
-  const activeImage = activeIndex !== -1 ? viewableImages[activeIndex] : null;
-
-  const handleNext = useCallback(() => {
-    if (activeIndex < viewableImages.length - 1) {
-      setActiveImageId(viewableImages[activeIndex + 1].id);
-    }
-  }, [activeIndex, viewableImages]);
-
-  const handlePrev = useCallback(() => {
-    if (activeIndex > 0) {
-      setActiveImageId(viewableImages[activeIndex - 1].id);
-    }
-  }, [activeIndex, viewableImages]);
-
-  const handleClose = useCallback(() => {
-    setActiveImageId(null);
-  }, []);
-
-  useEffect(() => {
-    if (activeImageId === null) return;
-
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "ArrowRight") {
-        handleNext();
-      } else if (e.key === "ArrowLeft") {
-        handlePrev();
-      } else if (e.key === "Escape") {
-        handleClose();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeImageId, activeIndex, viewableImages, handleNext, handlePrev, handleClose]);
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
@@ -300,7 +262,7 @@ export default function ChatPanel({
                       src={m.downloadUrl}
                       alt="P2P shared pic"
                       className="max-h-60 max-w-full rounded-lg object-contain border border-zinc-700 bg-black cursor-pointer"
-                      onClick={() => setActiveImageId(m.id)}
+                      onClick={() => onImageClick(m.id)}
                     />
                     <a
                       href={m.downloadUrl}
@@ -385,70 +347,6 @@ export default function ChatPanel({
           <Send className="w-4 h-4" />
         </button>
       </form>
-
-      {activeImage && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Image Preview"
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-md transition-all duration-300"
-          onClick={handleClose}
-        >
-          <button
-            onClick={handleClose}
-            className="absolute top-4 right-4 p-2.5 rounded-full bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800/80 text-zinc-300 hover:text-white transition-colors cursor-pointer"
-            aria-label="Close preview"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
-          {activeIndex > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePrev();
-              }}
-              className="absolute left-4 p-3 rounded-full bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800/80 text-zinc-300 hover:text-white transition-colors cursor-pointer"
-              aria-label="Previous image"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-          )}
-
-          {activeIndex < viewableImages.length - 1 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleNext();
-              }}
-              className="absolute right-4 p-3 rounded-full bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800/80 text-zinc-300 hover:text-white transition-colors cursor-pointer"
-              aria-label="Next image"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
-          )}
-
-          <div
-            className="relative max-h-[80vh] max-w-[85vw] flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={activeImage.downloadUrl}
-              alt={activeImage.text}
-              className="max-h-[80vh] max-w-[85vw] object-contain rounded-lg border border-zinc-800 shadow-[0_0_50px_rgba(0,0,0,0.8)]"
-            />
-          </div>
-
-          <div className="absolute bottom-6 flex flex-col items-center gap-1 select-none">
-            <p className="text-sm font-semibold text-zinc-200">
-              {activeImage.text.replace("File ready: ", "").replace("File sent: ", "")}
-            </p>
-            <p className="text-xs text-zinc-500 font-medium">
-              Image {activeIndex + 1} of {viewableImages.length}
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
