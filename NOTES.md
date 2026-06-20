@@ -62,6 +62,7 @@ I implemented peer-to-peer file sharing and visual improvements.
 - **Reliable Congestion Control:** Fixed large file transfers (>64KB) freezing. I set `dc.bufferedAmountLowThreshold` to 64KB and added an `onbufferedamountlow` event handler to pause/resume sending chunks, keeping the queue flow healthy. I also added a check on the receiver to verify all chunks arrived before assembling the file.
 - **Image Slider Preview Modal:** Clicking an image in chat now opens a full-screen preview. I added keyboard arrow bindings (`ArrowLeft`, `ArrowRight`, `Escape`) to cycle through all viewable images in the active session without using external APIs or servers.
 - **Layout Adjustments:** Moved the preview modal to the page root level so it centers correctly over the entire screen instead of being trapped by the chat panel's blur filters. I also moved the user counter to the top-left, enlarged it, added a pulsing green dot, and corrected the count math (`peers.length + 1`) to include the user.
+- **Busy/Offline User Connection Feedback:** Added detailed payloads to the auto-decline signals (`busy` and `offline`). When a third user attempts to connect to someone already in a call, or if the recipient's client is not idle, the server and client tag the decline signal with `"busy"`. The initiator parses this payload to display a clear notice (`"User is busy or connected with another user."` or `"User went offline."`) instead of the generic `"Request declined."` alert.
 
 ---
 
