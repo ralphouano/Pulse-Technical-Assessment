@@ -28,13 +28,13 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "invalid body" }, { status: 400 });
   }
 
-  const { fromId, toId, type, payload } = (body ?? {}) as Record<
+  const { fromId, secret, toId, type, payload } = (body ?? {}) as Record<
     string,
     unknown
   >;
 
-  if (typeof fromId !== "string" || typeof toId !== "string") {
-    return Response.json({ error: "invalid ids" }, { status: 400 });
+  if (typeof fromId !== "string" || typeof secret !== "string" || typeof toId !== "string") {
+    return Response.json({ error: "invalid credentials" }, { status: 400 });
   }
   if (typeof type !== "string" || !VALID_TYPES.includes(type as SignalType)) {
     return Response.json({ error: "invalid type" }, { status: 400 });
@@ -49,6 +49,12 @@ export async function POST(request: NextRequest) {
 
   const signalType = type as SignalType;
   const payloadStr = typeof payload === "string" ? payload : null;
+
+  // Authorize sender
+  const sender = await prisma.presence.findUnique({ where: { id: fromId } });
+  if (!sender || sender.secret !== secret) {
+    return Response.json({ error: "unauthorized" }, { status: 401 });
+  }
 
   // Enforce "one active connection at a time": if the target is already busy,
   // auto-decline the request instead of delivering it.

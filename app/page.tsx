@@ -1,5 +1,6 @@
 "use client";
 
+import Swal from "sweetalert2";
 import { useEffect, useRef, useState } from "react";
 import EntryGate from "./components/EntryGate";
 import WorldMap from "./components/WorldMap";
@@ -25,6 +26,7 @@ const REQUEST_TIMEOUT_MS = 30_000;
 export default function Home() {
   const [phase, setPhase] = useState<"gate" | "live">("gate");
   const [sessionId] = useState(() => crypto.randomUUID());
+  const [sessionSecret] = useState(() => crypto.randomUUID());
   const [peers, setPeers] = useState<PeerDot[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
@@ -76,10 +78,26 @@ export default function Home() {
     if (message) showNotice(message);
   }
 
+  // Graceful error handling for UNAUTHORIZED
+  const handleAuthError = (e: any) => {
+    if (e.message === "UNAUTHORIZED") {
+      Swal.fire({
+        title: "Session Expired",
+        text: "Your session was disconnected due to unauthorized activity. The page will now reload.",
+        icon: "error",
+        background: "#111",
+        color: "#fff",
+        confirmButtonColor: "#3b82f6",
+      }).then(() => {
+        window.location.reload();
+      });
+    }
+  };
+
   function startPeer(peerId: string, initiator: boolean) {
     const ps = new PeerSession(initiator, {
       onSignal: (type: DescType, payload: string) => {
-        void sendSignal(sessionId, peerId, type, payload);
+        sendSignal(sessionId, sessionSecret, peerId, type, payload).catch(handleAuthError);
       },
       onChat: (text) => addMessage(false, text),
       onControl: (ctrl) => handleControl(ctrl),
@@ -191,13 +209,13 @@ export default function Home() {
   function requestConnection(peerId: string) {
     if (connRef.current.kind !== "idle") return;
     setConn({ kind: "requesting", peerId });
-    void sendSignal(sessionId, peerId, "request");
+    sendSignal(sessionId, sessionSecret, peerId, "request").catch(handleAuthError);
     requestTimer.current = setTimeout(() => {
       if (
         connRef.current.kind === "requesting" &&
         connRef.current.peerId === peerId
       ) {
-        void sendSignal(sessionId, peerId, "end");
+        sendSignal(sessionId, sessionSecret, peerId, "end").catch(() => {});
         teardown("No answer.");
       }
     }, REQUEST_TIMEOUT_MS);
@@ -205,7 +223,7 @@ export default function Home() {
 
   function cancelRequest() {
     if (connRef.current.kind === "requesting") {
-      void sendSignal(sessionId, connRef.current.peerId, "end");
+      sendSignal(sessionId, sessionSecret, connRef.current.peerId, "end").catch(() => {});
     }
     teardown();
   }
@@ -215,21 +233,21 @@ export default function Home() {
     if (connRef.current.kind !== "incoming") return;
     const peerId = connRef.current.peerId;
     startPeer(peerId, false);
-    void sendSignal(sessionId, peerId, "accept");
+    sendSignal(sessionId, sessionSecret, peerId, "accept").catch(handleAuthError);
     setConn({ kind: "connecting", peerId });
   }
 
   function declineIncoming() {
     stopRinging();
     if (connRef.current.kind !== "incoming") return;
-    void sendSignal(sessionId, connRef.current.peerId, "decline");
+    sendSignal(sessionId, sessionSecret, connRef.current.peerId, "decline").catch(() => {});
     setConn({ kind: "idle" });
   }
 
   function endConnection() {
     const c = connRef.current;
     if (c.kind === "connecting" || c.kind === "connected") {
-      void sendSignal(sessionId, c.peerId, "end");
+      sendSignal(sessionId, sessionSecret, c.peerId, "end").catch(() => {});
     }
     teardown();
   }
@@ -380,7 +398,7 @@ export default function Home() {
           startRinging();
           setConn({ kind: "incoming", peerId: sig.fromId });
         } else {
-          void sendSignal(sessionId, sig.fromId, "decline");
+          sendSignal(sessionId, sessionSecret, sig.fromId, "decline").catch(() => {});
         }
         break;
       }
@@ -443,11 +461,17 @@ export default function Home() {
 
     const tick = async () => {
       try {
-        const data = await poll(sessionId);
+        const data = await poll(sessionId, sessionSecret);
         if (!active) return;
         setPeers(data.peers);
         for (const s of data.signals) processSignalRef.current(s);
-      } catch {}
+      } catch (e: any) {
+        if (e.message === "UNAUTHORIZED") {
+          active = false;
+          handleAuthError(e);
+          return;
+        }
+      }
       if (active) timer = setTimeout(tick, POLL_INTERVAL_MS);
     };
     tick();
@@ -459,8 +483,8 @@ export default function Home() {
   }, [phase, sessionId]);
 
   useEffect(() => {
-    if (!sessionId || phase !== "live") return;
-    const onLeave = () => leave(sessionId);
+    if (!sessionId || !sessionSecret || phase !== "live") return;
+    const onLeave = () => leave(sessionId, sessionSecret);
     window.addEventListener("pagehide", onLeave);
     window.addEventListener("beforeunload", onLeave);
     return () => {
@@ -471,7 +495,7 @@ export default function Home() {
 
   async function handleReady(lat: number, lng: number) {
     setMyLocation({ lat, lng });
-    await join(sessionId, lat, lng);
+    await join(sessionId, sessionSecret, lat, lng);
     setPhase("live");
   }
 

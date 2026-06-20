@@ -16,13 +16,22 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "invalid body" }, { status: 400 });
   }
 
-  const { id, lat, lng } = (body ?? {}) as Record<string, unknown>;
+  const { id, secret, lat, lng } = (body ?? {}) as Record<string, unknown>;
 
   if (typeof id !== "string" || id.length < 8 || id.length > 64) {
     return Response.json({ error: "invalid id" }, { status: 400 });
   }
+  if (typeof secret !== "string" || secret.length < 8) {
+    return Response.json({ error: "invalid secret" }, { status: 400 });
+  }
   if (!isValidLatLng(lat, lng)) {
     return Response.json({ error: "invalid coordinates" }, { status: 400 });
+  }
+
+  // Authorize ID ownership
+  const existing = await prisma.presence.findUnique({ where: { id } });
+  if (existing && existing.secret !== secret) {
+    return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const offset = applyPrivacyOffset(lat as number, lng as number);
@@ -31,6 +40,7 @@ export async function POST(request: NextRequest) {
     where: { id },
     create: {
       id,
+      secret,
       lat: offset.lat,
       lng: offset.lng,
       busy: false,

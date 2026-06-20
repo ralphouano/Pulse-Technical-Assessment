@@ -12,9 +12,10 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const id = params.get("id");
+  const secret = params.get("secret");
 
-  if (!id) {
-    return Response.json({ error: "missing id" }, { status: 400 });
+  if (!id || !secret) {
+    return Response.json({ error: "missing credentials" }, { status: 400 });
   }
 
   const now = Date.now();
@@ -22,10 +23,15 @@ export async function GET(request: NextRequest) {
   const signalCutoff = new Date(now - SIGNAL_TTL_MS);
 
   // 1) Heartbeat — refresh lastSeen for the caller.
-  await prisma.presence.updateMany({
-    where: { id },
+  const updated = await prisma.presence.updateMany({
+    where: { id, secret },
     data: { lastSeen: new Date(now) },
   });
+
+  // If no rows were updated, the ID doesn't exist or the secret is wrong.
+  if (updated.count === 0) {
+    return Response.json({ error: "unauthorized" }, { status: 401 });
+  }
 
   // 2) Reap stale presence rows and orphaned signals (independent deletes —
   // no atomicity needed, and avoids transactions over a PgBouncer pooler).

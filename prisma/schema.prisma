@@ -13,6 +13,7 @@ datasource db {
 
 model Presence {
   id       String   @id // client-generated session uuid
+  secret   String   // client-generated private token
   lat      Float // ALREADY privacy-offset coords (raw is never stored)
   lng      Float
   busy     Boolean  @default(false) // true while in an active connection

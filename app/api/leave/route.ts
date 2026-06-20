@@ -8,24 +8,25 @@ export const dynamic = "force-dynamic";
 // signals to/from this user. Called via navigator.sendBeacon on tab close, so
 // the body may arrive as text — parse defensively.
 export async function POST(request: NextRequest) {
-  let id: string | undefined;
+  let body: Record<string, unknown> = {};
   try {
     const text = await request.text();
-    id = text ? (JSON.parse(text)?.id as string | undefined) : undefined;
+    if (text) body = JSON.parse(text);
   } catch {
-    id = undefined;
+    // Ignore parse errors
   }
 
-  if (typeof id !== "string" || !id) {
-    return Response.json({ error: "invalid id" }, { status: 400 });
-  }
+  const { id, secret } = body;
 
-  // Independent cleanup deletes — no atomicity needed (and interactive
-  // transactions are unreliable over a PgBouncer pooler).
-  await prisma.signal.deleteMany({
-    where: { OR: [{ toId: id }, { fromId: id }] },
-  });
-  await prisma.presence.deleteMany({ where: { id } });
+  if (typeof id === "string" && typeof secret === "string") {
+    // Only delete if the secret matches
+    const deleted = await prisma.presence.deleteMany({ where: { id, secret } });
+    if (deleted.count > 0) {
+      await prisma.signal.deleteMany({
+        where: { OR: [{ toId: id }, { fromId: id }] },
+      });
+    }
+  }
 
   return Response.json({ ok: true });
 }
