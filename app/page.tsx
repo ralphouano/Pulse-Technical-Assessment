@@ -157,7 +157,8 @@ export default function Home() {
                   text: `File ready: ${file.name}`, 
                   downloadUrl, 
                   isImage: file.mimeType.startsWith("image/"),
-                  isVideo: file.mimeType.startsWith("video/")
+                  isVideo: file.mimeType.startsWith("video/"),
+                  isIncoming: false
                 }
               : msg
           )
@@ -168,7 +169,7 @@ export default function Home() {
 
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.fileId === fileId ? { ...msg, text: "File transfer canceled by sender." } : msg
+            msg.fileId === fileId ? { ...msg, text: "File transfer canceled by sender.", isIncoming: false } : msg
           )
         );
       }
