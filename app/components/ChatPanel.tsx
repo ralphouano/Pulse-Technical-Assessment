@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { Paperclip, FileText, Download, Send, Video, PhoneOff, Upload } from "lucide-react";
 import { playFeedback } from "@/lib/audio";
+import { ALL_SAFE_EXTS, checkIsVideo, checkIsImage } from "@/lib/file";
 
 export interface ChatMessage {
   id: number;
@@ -85,20 +86,13 @@ export default function ChatPanel({
   }
 
   async function handleFile(file: File) {
-    // Block malicious formats comprehensively (Windows/Mac/Linux executables & scripts)
-    const badExts = [
-      ".exe", ".com", ".dll", ".sys", ".cpl", ".ocx", ".scr", ".pif", ".msi", ".msp", 
-      ".bat", ".cmd", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh", ".ps1", ".ps1xml", 
-      ".ps2", ".ps2xml", ".psc1", ".psc2", ".msh", ".msh1", ".msh2", ".mshxml", ".msh1xml", 
-      ".msh2xml", ".scf", ".lnk", ".inf", ".reg", 
-      ".app", ".dmg", ".pkg", ".appimage", ".run", ".bin", ".elf", ".sh", ".bash", ".zsh", ".csh", ".tcsh", ".ksh"
-    ];
     const nameLower = file.name.toLowerCase();
-    if (badExts.some(ext => nameLower.endsWith(ext))) {
+    const isSafe = ALL_SAFE_EXTS.some(ext => nameLower.endsWith(ext));
+    if (!isSafe) {
       Swal.fire({
         icon: "error",
-        title: "Security Risk",
-        text: "This file type is not allowed for security reasons.",
+        title: "File Blocked",
+        text: "This file format is not allowed for security reasons.",
         background: "#18181b",
         color: "#f4f4f5",
         confirmButtonColor: "#3f3f46",
@@ -108,23 +102,62 @@ export default function ChatPanel({
 
     let fileToSend = file;
 
-    // Reject non-MP4/WebM videos (standard/globally recognized formats)
-    if (file.type.startsWith("video/") && !["video/mp4", "video/webm"].includes(file.type)) {
+    // Convert HEIC/HEIF images to JPG dynamically
+    if (nameLower.endsWith(".heic") || nameLower.endsWith(".heif")) {
       Swal.fire({
-        icon: "warning",
-        title: "Unsupported Format",
-        text: "Please use a standard or globally recognized video format (like MP4 or WebM).",
+        title: "Converting HEIC Image...",
+        text: "Optimizing for chat compatibility",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
         background: "#18181b",
         color: "#f4f4f5",
-        confirmButtonColor: "#3f3f46",
       });
-      return;
+
+      try {
+        const heic2any = (await import("heic2any")).default;
+        const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.8 });
+        const convertedBlob = Array.isArray(result) ? result[0] : result;
+        const baseName = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name;
+        fileToSend = new File([convertedBlob], `${baseName}.jpg`, { type: "image/jpeg" });
+        Swal.close();
+      } catch (err) {
+        console.error("Failed to convert HEIC to JPG, sending raw file:", err);
+        Swal.close();
+      }
     }
 
-    // Convert images to JPG
-    if (file.type.startsWith("image/") && file.type !== "image/jpeg" && file.type !== "image/gif") {
+    // Validate video format if it's classified as a video
+    const isVideo = checkIsVideo(fileToSend.name, fileToSend.type);
+    if (isVideo) {
+      const allowedVideoExts = [".mp4", ".mkv", ".mov", ".avi", ".webm"];
+      const isAllowedVideo = allowedVideoExts.some(ext => fileToSend.name.toLowerCase().endsWith(ext));
+      if (!isAllowedVideo) {
+        Swal.fire({
+          icon: "warning",
+          title: "Unsupported Video Format",
+          text: "Please use one of the supported video formats (MP4, MKV, MOV, AVI, WebM).",
+          background: "#18181b",
+          color: "#f4f4f5",
+          confirmButtonColor: "#3f3f46",
+        });
+        return;
+      }
+    }
+
+    // Convert standard images (except jpeg and gif) to JPEG to optimize size/compatibility
+    const isImage = checkIsImage(fileToSend.name, fileToSend.type);
+    const fileToSendNameLower = fileToSend.name.toLowerCase();
+    if (
+      isImage &&
+      fileToSend.type !== "image/jpeg" &&
+      fileToSend.type !== "image/gif" &&
+      !fileToSendNameLower.endsWith(".heic") &&
+      !fileToSendNameLower.endsWith(".heif")
+    ) {
       try {
-        const bmp = await createImageBitmap(file);
+        const bmp = await createImageBitmap(fileToSend);
         const canvas = document.createElement("canvas");
         canvas.width = bmp.width;
         canvas.height = bmp.height;
@@ -134,7 +167,7 @@ export default function ChatPanel({
           const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
           if (blob) {
             // Replace extension with .jpg
-            const baseName = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name;
+            const baseName = fileToSend.name.includes('.') ? fileToSend.name.substring(0, fileToSend.name.lastIndexOf('.')) : fileToSend.name;
             fileToSend = new File([blob], `${baseName}.jpg`, { type: "image/jpeg" });
           }
         }

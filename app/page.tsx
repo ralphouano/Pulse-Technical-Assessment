@@ -13,6 +13,7 @@ import { PeerSession, type DescType, type PeerControl } from "@/lib/webrtc";
 import { POLL_INTERVAL_MS } from "@/lib/presence";
 import { type PeerDot, type SignalMsg } from "@/lib/types";
 import { startConnectionRing, startVideoRing, stopRing, playMessageBell, playFeedback } from "@/lib/audio";
+import { checkIsVideo, checkIsImage } from "@/lib/file";
 
 type Conn =
   | { kind: "idle" }
@@ -224,8 +225,8 @@ export default function Home() {
                   ...msg, 
                   text: `File ready: ${file.name}`, 
                   downloadUrl, 
-                  isImage: file.mimeType.startsWith("image/"),
-                  isVideo: file.mimeType.startsWith("video/"),
+                  isImage: checkIsImage(file.name, file.mimeType),
+                  isVideo: checkIsVideo(file.name, file.mimeType),
                   isIncoming: false
                 }
               : msg
@@ -377,8 +378,8 @@ export default function Home() {
 
     // Add upload card inside sender's chat messages state
     const downloadUrl = URL.createObjectURL(file);
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
+    const isImage = checkIsImage(file.name, file.type);
+    const isVideo = checkIsVideo(file.name, file.type);
 
     setMessages((prev) => [
       ...prev,
