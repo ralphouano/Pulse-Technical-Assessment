@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
 import type { Map as MapboxMap, Marker } from "mapbox-gl";
 import type { PeerDot } from "@/lib/types";
+import { playFeedback } from "@/lib/audio";
 
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "pk.eyJ1IjoicHVsc2UtbWFwIiwiYSI6ImNrMDBkZW1vMDAwMDAwMDAifQ.AAAAAAAAAAAAAAAAAAAAAA";
 
@@ -107,7 +108,7 @@ export default function WorldMap({
         try {
           map.addControl(new mapboxgl.NavigationControl(), 'top-right');
           controlsAddedRef.current = true;
-        } catch (e) {}
+        } catch {}
       }
     })();
 
@@ -138,6 +139,7 @@ export default function WorldMap({
           el.title = "Tap to connect";
           el.addEventListener("click", (e) => {
             e.stopPropagation();
+            playFeedback("click");
             if (canConnectRef.current) onPeerClickRef.current(peer.id);
           });
           marker = new mapboxgl.Marker({ element: el })

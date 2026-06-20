@@ -11,6 +11,7 @@ import { join, leave, poll, sendSignal } from "@/lib/api";
 import { PeerSession, type DescType, type PeerControl } from "@/lib/webrtc";
 import { POLL_INTERVAL_MS } from "@/lib/presence";
 import { type PeerDot, type SignalMsg } from "@/lib/types";
+import { startConnectionRing, startVideoRing, stopRing, playMessageBell, playFeedback } from "@/lib/audio";
 
 type Conn =
   | { kind: "idle" }
@@ -54,7 +55,6 @@ export default function Home() {
   const peerRef = useRef<PeerSession | null>(null);
   const msgId = useRef(0);
   const requestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const activeRingerRef = useRef<(() => void) | null>(null);
 
   function showNotice(text: string) {
     setNotice(text);
@@ -62,11 +62,16 @@ export default function Home() {
   }
 
   function addMessage(mine: boolean, text: string) {
+    if (!mine) playMessageBell();
     setMessages((prev) => [...prev, { id: msgId.current++, mine, text }]);
   }
 
-  function teardown(message?: string) {
-    stopRinging();
+  function teardown(reason?: string) {
+    if (reason && connRef.current.kind !== "idle") {
+      showNotice(reason);
+      playFeedback("disconnect");
+    }
+    stopRing();
     if (requestTimer.current) clearTimeout(requestTimer.current);
     peerRef.current?.close();
     peerRef.current = null;
@@ -75,11 +80,10 @@ export default function Home() {
     setVideo("none");
     setMessages([]);
     setConn({ kind: "idle" });
-    if (message) showNotice(message);
   }
 
   // Graceful error handling for UNAUTHORIZED
-  const handleAuthError = (e: any) => {
+  const handleAuthError = (e: { message?: string }) => {
     if (e.message === "UNAUTHORIZED") {
       Swal.fire({
         title: "Session Expired",
@@ -108,6 +112,7 @@ export default function Home() {
         }
       },
       onChannelOpen: () => {
+        playFeedback("success");
         setConn({ kind: "connected", peerId });
       },
       onFileMeta: (fileId, name, size, mimeType) => {
@@ -170,12 +175,12 @@ export default function Home() {
     switch (ctrl) {
       case "video-request":
         if (videoRef.current === "none") {
-          startRinging();
+          startVideoRing();
           setVideo("incoming");
         }
         break;
       case "video-accept":
-        stopRinging();
+        stopRing();
         if (videoRef.current === "requesting" && ps) {
           ps.startVideo()
             .then((stream) => {
@@ -190,14 +195,14 @@ export default function Home() {
         }
         break;
       case "video-decline":
-        stopRinging();
+        stopRing();
         if (videoRef.current === "requesting") {
           setVideo("none");
           showNotice("Video declined.");
         }
         break;
       case "video-end":
-        stopRinging();
+        stopRing();
         ps?.stopVideo();
         setLocalStream(null);
         setRemoteStream(null);
@@ -229,7 +234,7 @@ export default function Home() {
   }
 
   function acceptIncoming() {
-    stopRinging();
+    stopRing();
     if (connRef.current.kind !== "incoming") return;
     const peerId = connRef.current.peerId;
     startPeer(peerId, false);
@@ -238,7 +243,7 @@ export default function Home() {
   }
 
   function declineIncoming() {
-    stopRinging();
+    stopRing();
     if (connRef.current.kind !== "incoming") return;
     sendSignal(sessionId, sessionSecret, connRef.current.peerId, "decline").catch(() => {});
     setConn({ kind: "idle" });
@@ -259,7 +264,7 @@ export default function Home() {
   }
 
   function acceptVideo() {
-    stopRinging();
+    stopRing();
     const ps = peerRef.current;
     if (!ps) return;
     ps.startVideo()
@@ -276,7 +281,7 @@ export default function Home() {
   }
 
   function declineVideo() {
-    stopRinging();
+    stopRing();
     peerRef.current?.sendControl("video-decline");
     setVideo("none");
   }
@@ -329,73 +334,11 @@ export default function Home() {
     );
   }
 
-  function startRinging() {
-    if (activeRingerRef.current) return;
-    try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      let active = true;
-      let timeoutId: any;
-      let currentGain: GainNode | null = null;
-      let currentOsc: OscillatorNode | null = null;
-
-      function playRing() {
-        if (!active) return;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.5);
-        
-        gain.gain.setValueAtTime(0, ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.0);
-        
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        
-        osc.start();
-        osc.stop(ctx.currentTime + 1.0);
-        
-        currentOsc = osc;
-        currentGain = gain;
-        
-        timeoutId = setTimeout(playRing, 2000); // Repeat every 2 seconds
-      }
-      
-      playRing();
-
-      activeRingerRef.current = () => {
-        active = false;
-        clearTimeout(timeoutId);
-        if (currentGain) {
-          // Smoothly ramp down volume to avoid popping
-          currentGain.gain.cancelScheduledValues(ctx.currentTime);
-          currentGain.gain.setValueAtTime(currentGain.gain.value, ctx.currentTime);
-          currentGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
-        }
-        if (currentOsc) {
-          currentOsc.stop(ctx.currentTime + 0.1);
-        }
-        setTimeout(() => ctx.close(), 200);
-      };
-    } catch (err) {
-      console.warn("Could not play ringer:", err);
-    }
-  }
-
-  function stopRinging() {
-    if (activeRingerRef.current) {
-      activeRingerRef.current();
-      activeRingerRef.current = null;
-    }
-  }
-
   function processSignal(sig: SignalMsg) {
     switch (sig.type) {
       case "request": {
         if (connRef.current.kind === "idle") {
-          startRinging();
+          startConnectionRing();
           setConn({ kind: "incoming", peerId: sig.fromId });
         } else {
           sendSignal(sessionId, sessionSecret, sig.fromId, "decline").catch(() => {});
@@ -468,10 +411,11 @@ export default function Home() {
           return data.peers;
         });
         for (const s of data.signals) processSignalRef.current(s);
-      } catch (e: any) {
-        if (e.message === "UNAUTHORIZED") {
+      } catch (e) {
+        const err = e as { message?: string };
+        if (err.message === "UNAUTHORIZED") {
           active = false;
-          handleAuthError(e);
+          handleAuthError(err);
           return;
         }
       }
@@ -488,7 +432,7 @@ export default function Home() {
       active = false;
       if (timer) clearTimeout(timer);
     };
-  }, [phase, sessionId]);
+  }, [phase, sessionId, sessionSecret]);
 
   useEffect(() => {
     if (!sessionId || !sessionSecret || phase !== "live") return;
@@ -499,7 +443,7 @@ export default function Home() {
       window.removeEventListener("pagehide", onLeave);
       window.removeEventListener("beforeunload", onLeave);
     };
-  }, [sessionId, phase]);
+  }, [sessionId, sessionSecret, phase]);
 
   async function handleReady(lat: number, lng: number) {
     setMyLocation({ lat, lng });

@@ -30,8 +30,8 @@ export async function GET(request: NextRequest) {
       where: { id, secret },
       data: { lastSeen: new Date(now) },
     });
-  } catch (e: any) {
-    return Response.json({ error: "prisma error", message: e.message }, { status: 500 });
+  } catch (e) {
+    return Response.json({ error: "prisma error", message: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }
 
   // If no rows were updated, the ID doesn't exist or the secret is wrong.

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { Paperclip, FileText, Download, Send, Video, PhoneOff } from "lucide-react";
+import { playFeedback } from "@/lib/audio";
 
 export interface ChatMessage {
   id: number;
@@ -113,9 +114,9 @@ export default function ChatPanel({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const text = draft.trim();
-    if (!text || !connected) return;
-    onSend(text);
+    if (!draft.trim() || !connected) return;
+    playFeedback("click");
+    onSend(draft);
     setDraft("");
   }
 

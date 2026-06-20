@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, MapPin } from "lucide-react";
+import { playFeedback } from "@/lib/audio";
 
 export default function EntryGate({
   onReady,
@@ -20,7 +21,10 @@ export default function EntryGate({
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => onReady(pos.coords.latitude, pos.coords.longitude),
+      (pos) => {
+        playFeedback("success");
+        onReady(pos.coords.latitude, pos.coords.longitude);
+      },
       (err) => {
         console.warn(`Geolocation error (${err.code}): ${err.message}`);
         setError("Couldn't get your location. Please check your browser's location permissions in the address bar and try again.");

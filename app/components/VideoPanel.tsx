@@ -1,7 +1,7 @@
 "use client";
-
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Video, VideoOff, PhoneOff } from "lucide-react";
+import { playFeedback } from "@/lib/audio";
 
 export default function VideoPanel({
   localStream,
@@ -51,23 +51,25 @@ export default function VideoPanel({
     }
   }, [remoteStream]);
 
-  function toggleMic() {
+  const toggleMic = () => {
+    playFeedback("click");
     if (!localStream) return;
-    const track = localStream.getAudioTracks()[0];
-    if (track) {
-      track.enabled = !track.enabled;
-      setMicOn(track.enabled);
+    const audioTrack = localStream.getAudioTracks()[0];
+    if (audioTrack) {
+      audioTrack.enabled = !audioTrack.enabled;
+      setMicOn(audioTrack.enabled);
     }
-  }
+  };
 
-  function toggleCam() {
+  const toggleCam = () => {
+    playFeedback("click");
     if (!localStream) return;
-    const track = localStream.getVideoTracks()[0];
-    if (track) {
-      track.enabled = !track.enabled;
-      setCamOn(track.enabled);
+    const videoTrack = localStream.getVideoTracks()[0];
+    if (videoTrack) {
+      videoTrack.enabled = !videoTrack.enabled;
+      setCamOn(videoTrack.enabled);
     }
-  }
+  };
 
   return (
     /* On md+ screens, leave 28rem (max-w-md) on the right for the ChatPanel.
