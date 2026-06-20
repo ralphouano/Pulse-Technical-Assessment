@@ -65,11 +65,11 @@ export async function POST(request: NextRequest) {
     });
     if (!target) {
       // Target went offline — tell the initiator it was declined.
-      await sendDecline(toId, fromId);
+      await sendDecline(toId, fromId, "offline");
       return Response.json({ ok: true, autoDeclined: true });
     }
     if (target.busy) {
-      await sendDecline(toId, fromId);
+      await sendDecline(toId, fromId, "busy");
       return Response.json({ ok: true, autoDeclined: true });
     }
   }
@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
 }
 
 // Helper: deliver an auto-decline from `target` back to `initiator`.
-async function sendDecline(targetId: string, initiatorId: string) {
+async function sendDecline(targetId: string, initiatorId: string, reason: string | null = null) {
   await prisma.signal.create({
-    data: { fromId: targetId, toId: initiatorId, type: "decline", payload: null },
+    data: { fromId: targetId, toId: initiatorId, type: "decline", payload: reason },
   });
 }

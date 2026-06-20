@@ -429,7 +429,7 @@ export default function Home() {
           startConnectionRing();
           setConn({ kind: "incoming", peerId: sig.fromId });
         } else {
-          sendSignal(sessionId, sessionSecret, sig.fromId, "decline").catch(() => {});
+          sendSignal(sessionId, sessionSecret, sig.fromId, "decline", "busy").catch(() => {});
         }
         break;
       }
@@ -446,7 +446,13 @@ export default function Home() {
         const c = connRef.current;
         if (c.kind === "requesting" && c.peerId === sig.fromId) {
           if (requestTimer.current) clearTimeout(requestTimer.current);
-          teardown("Request declined.");
+          if (sig.payload === "busy") {
+            teardown("User is busy or connected with another user.");
+          } else if (sig.payload === "offline") {
+            teardown("User went offline.");
+          } else {
+            teardown("Request declined.");
+          }
         }
         break;
       }
