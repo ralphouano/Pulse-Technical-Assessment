@@ -72,9 +72,9 @@ export default function VideoPanel({
   };
 
   return (
-    /* On md+ screens, leave 28rem (max-w-md) on the left for the ChatPanel.
+    /* On md+ screens, leave 28rem (max-w-md) on the right for the ChatPanel.
        On small screens, go full-width behind the ChatPanel (z-10 < z-20). */
-    <div className="absolute inset-y-0 left-0 md:left-[28rem] right-0 z-10 flex flex-col bg-zinc-950">
+    <div className="absolute inset-y-0 left-0 right-0 md:right-[28rem] z-10 flex flex-col bg-zinc-950">
       {/* Hidden audio element for reliable audio playback */}
       <audio ref={audioRef} autoPlay />
 

@@ -167,7 +167,7 @@ export default function ChatPanel({
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="absolute inset-y-0 left-0 z-20 flex w-full max-w-md flex-col bg-zinc-950/85 backdrop-blur-xl border-r border-zinc-800/50 shadow-[0_0_30px_rgba(0,0,0,0.5)] text-zinc-100"
+      className="absolute inset-y-0 right-0 z-20 flex w-full max-w-md flex-col bg-zinc-950/85 backdrop-blur-xl border-l border-zinc-800/50 shadow-[0_0_30px_rgba(0,0,0,0.5)] text-zinc-100"
     >
       {isDragging && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-zinc-950/95 border-2 border-dashed border-emerald-500 rounded-2xl m-2 backdrop-blur-sm pointer-events-none">
