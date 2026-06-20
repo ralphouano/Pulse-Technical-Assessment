@@ -10,12 +10,13 @@ export const dynamic = "force-dynamic";
 // It (1) heartbeats the caller, (2) reaps stale presence + orphan signals,
 // (3) returns the filtered online peers, and (4) drains this user's mailbox.
 export async function GET(request: NextRequest) {
-  const params = request.nextUrl.searchParams;
-  const id = params.get("id");
-  const secret = params.get("secret");
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+  const authHeader = request.headers.get("authorization");
+  const secret = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
 
   if (!id || !secret) {
-    return Response.json({ error: "missing credentials" }, { status: 400 });
+    return Response.json({ error: "missing id or secret" }, { status: 400 });
   }
 
   const now = Date.now();

@@ -15,8 +15,11 @@ export async function join(
 }
 
 export async function poll(id: string, secret: string): Promise<PollResponse> {
-  const res = await fetch(`/api/poll?id=${encodeURIComponent(id)}&secret=${encodeURIComponent(secret)}`, {
+  const res = await fetch(`/api/poll?id=${encodeURIComponent(id)}`, {
     cache: "no-store",
+    headers: {
+      "Authorization": `Bearer ${secret}`
+    }
   });
   if (res.status === 401) {
     throw new Error("UNAUTHORIZED");

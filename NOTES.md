@@ -39,12 +39,20 @@ With the app running, I conducted a security review to protect users from malici
 3. **Medium Priority: Database Inbox Bloat**
    - *Issue:* Stale signaling rows (mailboxes) could bloat the Postgres database over time, slowing down the polling queries.
    - *Fix:* I verified and ensured that old signals are rigorously pruned upon every poll event using `deleteMany` based on `SIGNAL_TTL_MS` (60 seconds).
-3. **Low Priority: IP Address Leakage via ICE**
+4. **Critical Priority: Location Triangulation via Rapid Joins**
+   - *Issue:* The privacy offset shifted a user's location by 1-3km. However, the `/api/join` route recalculated this offset on every `upsert` update. A malicious attacker could repeatedly call `/api/join` to generate hundreds of random offsets and average them out to pinpoint the user's *exact* real-world coordinates.
+   - *Fix:* I modified the `upsert` block in `app/api/join/route.ts` to only update `lastSeen` on reconnects, ensuring a session is assigned a single random offset that stays static, completely neutralizing triangulation.
+5. **Low Priority: IP Address Leakage via ICE**
    - *Issue:* The app currently uses public Google STUN servers. WebRTC STUN exposes the user's public and local IP addresses to their peer.
    - *Fix:* I decided to leave this as-is for the assessment, but in a production environment, I would enforce the use of a secure TURN proxy and configure the policy to only use relay servers (`iceTransportPolicy: "relay"`).
-4. **Low Priority: Location Privacy**
-   - *Issue:* Broadcasting exact coordinates is a massive safety risk.
-   - *Fix:* I verified that the existing `applyPrivacyOffset` logic is highly robust. It securely shifts the user's real coordinate randomly between 1 and 3 km before joining. Because raw coordinates never touch the server, exact physical locations are protected from server compromises.
+
+### Performance Audit
+1. **High Priority: Over-Aggressive Database Polling**
+   - *Issue:* `POLL_INTERVAL_MS` was set to `300ms`, generating 3+ queries per second per user. This would easily exhaust Serverless functions and Postgres connection pools.
+   - *Fix:* I increased the interval to `1800ms`, striking a balance between fast signaling and sustainable infrastructure.
+2. **Medium Priority: React Re-render Thrashing**
+   - *Issue:* The polling loop aggressively called `setPeers()` every tick, forcing the `WorldMap` DOM to constantly re-render even if no users joined/left.
+   - *Fix:* I added a deep equality check (`JSON.stringify()`) to prevent state updates if the incoming data matches the existing peer list.
 
 ---
 

@@ -47,8 +47,6 @@ export async function POST(request: NextRequest) {
       lastSeen: new Date(),
     },
     update: {
-      lat: offset.lat,
-      lng: offset.lng,
       lastSeen: new Date(),
     },
   });

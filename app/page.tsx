@@ -463,7 +463,10 @@ export default function Home() {
       try {
         const data = await poll(sessionId, sessionSecret);
         if (!active) return;
-        setPeers(data.peers);
+        setPeers((prev) => {
+          if (JSON.stringify(prev) === JSON.stringify(data.peers)) return prev;
+          return data.peers;
+        });
         for (const s of data.signals) processSignalRef.current(s);
       } catch (e: any) {
         if (e.message === "UNAUTHORIZED") {
