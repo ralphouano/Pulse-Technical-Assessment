@@ -62,5 +62,5 @@ Once the app was running, I checked for security problems, data leaks, and datab
 ### What I built, Why, and Next Steps
 I added a file and image sharing feature that sends files directly between users using the WebRTC data channel.
 
-- **What I built:** I added a file attachment button (`📎`). Large files are split into small 16KB parts and sent with progress bars. Received images show up as preview thumbnails, and other files show up as download links. To stay safe, sent images are converted to JPG in the background, and videos are limited to standard formats (`mp4` and `webm`).
+- **What I built:** I added a file attachment button (`📎`) and support for dragging and dropping files directly onto the chat window to share them. Large files are split into small 16KB parts and sent with progress bars. Sent and received images and videos (MP4, WebM) show up as preview thumbnails and players directly in the chat, and other files show up as download links. To stay safe, sent images are converted to JPG in the background, and videos are limited to standard formats (`mp4` and `webm`).
 - **Why:** Sharing photos and documents directly between browsers makes the chat much more useful. To make sure large files don't block text messages while sending, I added a queue that mixes file parts and text messages so text always goes through immediately.
