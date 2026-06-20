@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
-import { Paperclip, FileText, Download, Send, Video, PhoneOff } from "lucide-react";
+import { Paperclip, FileText, Download, Send, Video, PhoneOff, Upload } from "lucide-react";
 import { playFeedback } from "@/lib/audio";
 
 export interface ChatMessage {
@@ -14,6 +14,7 @@ export interface ChatMessage {
   isIncoming?: boolean;
   downloadUrl?: string;
   isImage?: boolean;
+  isVideo?: boolean;
 }
 
 export default function ChatPanel({
@@ -38,11 +39,48 @@ export default function ChatPanel({
   const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!connected) return;
+    dragCounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+
+    if (!connected) return;
+
+    const file = e.dataTransfer.files?.[0];
     if (!file) return;
 
+    await handleFile(file);
+  }
+
+  async function handleFile(file: File) {
     // Block malicious formats comprehensively (Windows/Mac/Linux executables & scripts)
     const badExts = [
       ".exe", ".com", ".dll", ".sys", ".cpl", ".ocx", ".scr", ".pif", ".msi", ".msp", 
@@ -61,7 +99,6 @@ export default function ChatPanel({
         color: "#f4f4f5",
         confirmButtonColor: "#3f3f46",
       });
-      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -77,7 +114,6 @@ export default function ChatPanel({
         color: "#f4f4f5",
         confirmButtonColor: "#3f3f46",
       });
-      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -100,11 +136,16 @@ export default function ChatPanel({
         }
       } catch (err) {
         console.error("Failed to convert image to JPG:", err);
-        // fallback to sending original file if conversion fails
       }
     }
 
     onSendFile(fileToSend);
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await handleFile(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -121,7 +162,20 @@ export default function ChatPanel({
   }
 
   return (
-    <div className="absolute inset-y-0 right-0 z-20 flex w-full max-w-md flex-col bg-zinc-950/85 backdrop-blur-xl border-l border-zinc-800/50 shadow-[0_0_30px_rgba(0,0,0,0.5)] text-zinc-100">
+    <div
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className="absolute inset-y-0 right-0 z-20 flex w-full max-w-md flex-col bg-zinc-950/85 backdrop-blur-xl border-l border-zinc-800/50 shadow-[0_0_30px_rgba(0,0,0,0.5)] text-zinc-100 relative"
+    >
+      {isDragging && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-zinc-950/95 border-2 border-dashed border-emerald-500 rounded-2xl m-2 backdrop-blur-sm pointer-events-none">
+          <Upload className="w-12 h-12 text-emerald-400 animate-bounce mb-2" />
+          <p className="text-emerald-400 font-semibold text-base">Drop file to instantly share</p>
+          <p className="text-zinc-400 text-xs mt-1">P2P transfer directly in chat</p>
+        </div>
+      )}
       <header className="flex items-center justify-between border-b border-zinc-800/50 px-4 py-3 bg-zinc-950/50">
         <div>
           <p className="font-semibold text-lg">Stranger</p>
@@ -155,8 +209,10 @@ export default function ChatPanel({
           </p>
         )}
         {messages.map((m) => {
-          const isImageFile = m.downloadUrl && m.isImage;
-          const isGenericFile = m.downloadUrl && !m.isImage;
+          const showPreview = m.downloadUrl && !m.isOutgoing && !m.isIncoming;
+          const isImageFile = showPreview && m.isImage;
+          const isVideoFile = showPreview && m.isVideo;
+          const isGenericFile = showPreview && !m.isImage && !m.isVideo;
 
           return (
             <div
@@ -206,10 +262,28 @@ export default function ChatPanel({
                     />
                     <a
                       href={m.downloadUrl}
-                      download={m.text.replace("File ready: ", "").replace("📁 ", "")}
+                      download={m.text.replace("File ready: ", "").replace("File sent: ", "").replace("📁 ", "")}
                       className="text-xs text-emerald-950 hover:underline flex items-center gap-1 mt-1 justify-end font-bold"
                     >
                       <Download className="w-3 h-3" /> Save Image
+                    </a>
+                  </div>
+                )}
+
+                {/* Complete Video Preview CARD */}
+                {isVideoFile && (
+                  <div className="flex flex-col gap-2">
+                    <video
+                      src={m.downloadUrl}
+                      controls
+                      className="max-h-60 max-w-full rounded-lg border border-zinc-700 bg-black"
+                    />
+                    <a
+                      href={m.downloadUrl}
+                      download={m.text.replace("File ready: ", "").replace("File sent: ", "").replace("📁 ", "")}
+                      className="text-xs text-emerald-950 hover:underline flex items-center gap-1 mt-1 justify-end font-bold"
+                    >
+                      <Download className="w-3 h-3" /> Save Video
                     </a>
                   </div>
                 )}
@@ -219,10 +293,10 @@ export default function ChatPanel({
                   <div className="flex items-center gap-3 p-1">
                     <FileText className="w-6 h-6 opacity-80" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate text-xs">{m.text.replace("File ready: ", "").replace("📁 ", "")}</p>
+                      <p className="font-semibold truncate text-xs">{m.text.replace("File ready: ", "").replace("File sent: ", "").replace("📁 ", "")}</p>
                       <a
                         href={m.downloadUrl}
-                        download={m.text.replace("File ready: ", "").replace("📁 ", "")}
+                        download={m.text.replace("File ready: ", "").replace("File sent: ", "").replace("📁 ", "")}
                         className={`text-xs hover:underline font-bold flex items-center gap-1 mt-0.5 ${m.mine ? "text-emerald-950" : "text-emerald-400"}`}
                       >
                         <Download className="w-3 h-3" /> Download File

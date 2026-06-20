@@ -152,7 +152,13 @@ export default function Home() {
         setMessages((prev) =>
           prev.map((msg) =>
             msg.fileId === fileId
-              ? { ...msg, text: `File ready: ${file.name}`, downloadUrl, isImage: file.mimeType.startsWith("image/") }
+              ? { 
+                  ...msg, 
+                  text: `File ready: ${file.name}`, 
+                  downloadUrl, 
+                  isImage: file.mimeType.startsWith("image/"),
+                  isVideo: file.mimeType.startsWith("video/")
+                }
               : msg
           )
         );
@@ -301,9 +307,22 @@ export default function Home() {
 
 
     // Add upload card inside sender's chat messages state
+    const downloadUrl = URL.createObjectURL(file);
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+
     setMessages((prev) => [
       ...prev,
-      { id: msgId.current++, mine: true, text: `Sending ${file.name}...`, fileId, isOutgoing: true }
+      { 
+        id: msgId.current++, 
+        mine: true, 
+        text: `Sending ${file.name}...`, 
+        fileId, 
+        isOutgoing: true,
+        downloadUrl,
+        isImage,
+        isVideo
+      }
     ]);
 
     peerRef.current.sendFile(file, fileId, (sentBytes) => {
