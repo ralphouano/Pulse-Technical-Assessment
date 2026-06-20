@@ -62,3 +62,14 @@ I implemented peer-to-peer file sharing and visual improvements.
 - **Reliable Congestion Control:** Fixed large file transfers (>64KB) freezing. I set `dc.bufferedAmountLowThreshold` to 64KB and added an `onbufferedamountlow` event handler to pause/resume sending chunks, keeping the queue flow healthy. I also added a check on the receiver to verify all chunks arrived before assembling the file.
 - **Image Slider Preview Modal:** Clicking an image in chat now opens a full-screen preview. I added keyboard arrow bindings (`ArrowLeft`, `ArrowRight`, `Escape`) to cycle through all viewable images in the active session without using external APIs or servers.
 - **Layout Adjustments:** Moved the preview modal to the page root level so it centers correctly over the entire screen instead of being trapped by the chat panel's blur filters. I also moved the user counter to the top-left, enlarged it, added a pulsing green dot, and corrected the count math (`peers.length + 1`) to include the user.
+
+---
+
+## AI Collaboration Approach
+
+To get these tasks done, I used an AI coding assistant. Here is how I prompted the AI to keep the work clean and efficient:
+- **Strict Guidelines (CLAUDE.md / AGENTS.md):** I set up rules forcing the AI to keep code changes minimal and surgical (only edit what is needed, no random refactoring), verify success using actual command outputs before claiming completion, and follow a strict systematic debugging workflow (diagnose root cause first).
+- **POV and Vocabulary Control:** I explicitly instructed the AI to write all notes, commits, and comments in my own perspective (first-person "I") and to avoid generic corporate buzzwords or verbose explanations.
+- **Incremental and Iterative Instructions:** I guided the UI and functionality updates in small, sequential steps (e.g. shifting panel alignments, fixing specific received message rendering bugs, resolving buffer freezes, centering previews, repositioning map elements) rather than asking for massive changes all at once.
+- **Discreet Integration:** I kept the VCS commits clean and discreet, ensuring commit messages look like natural developer contributions.
+
