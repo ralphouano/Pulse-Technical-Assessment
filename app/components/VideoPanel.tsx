@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Mic, MicOff, Video, VideoOff, PhoneOff } from "lucide-react";
 
 export default function VideoPanel({
   localStream,
@@ -105,36 +106,36 @@ export default function VideoPanel({
           {/* Mute / Unmute Mic */}
           <button
             onClick={toggleMic}
-            className={`flex h-10 w-10 items-center justify-center rounded-full text-base transition ${
+            className={`flex h-12 w-12 items-center justify-center rounded-full text-base transition ${
               micOn
                 ? "bg-zinc-700 text-white hover:bg-zinc-600"
                 : "bg-red-500 text-white hover:bg-red-400"
             }`}
             title={micOn ? "Mute mic" : "Unmute mic"}
           >
-            {micOn ? "🎤" : "🔇"}
+            {micOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
           </button>
 
           {/* Toggle Camera */}
           <button
             onClick={toggleCam}
-            className={`flex h-10 w-10 items-center justify-center rounded-full text-base transition ${
+            className={`flex h-12 w-12 items-center justify-center rounded-full text-base transition ${
               camOn
                 ? "bg-zinc-700 text-white hover:bg-zinc-600"
                 : "bg-red-500 text-white hover:bg-red-400"
             }`}
             title={camOn ? "Turn off camera" : "Turn on camera"}
           >
-            {camOn ? "📹" : "🚫"}
+            {camOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
           </button>
 
           {/* End Video */}
           <button
             onClick={onEnd}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500 text-lg text-white shadow-md hover:bg-red-400 transition"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500 text-lg text-white shadow-md hover:bg-red-400 transition"
             title="End video"
           >
-            ✕
+            <PhoneOff className="w-6 h-6" />
           </button>
         </div>
       </div>

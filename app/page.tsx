@@ -116,7 +116,7 @@ export default function Home() {
         // Add a system announcement message into chat
         setMessages((prev) => [
           ...prev,
-          { id: msgId.current++, mine: false, text: `📁 Incoming file: ${name} (${(size / 1024 / 1024).toFixed(2)} MB)...`, fileId, isIncoming: true }
+          { id: msgId.current++, mine: false, text: `Incoming file: ${name} (${(size / 1024 / 1024).toFixed(2)} MB)...`, fileId, isIncoming: true }
         ]);
       },
       onFileChunk: (fileId, chunkIndex, data) => {
@@ -147,7 +147,7 @@ export default function Home() {
         setMessages((prev) =>
           prev.map((msg) =>
             msg.fileId === fileId
-              ? { ...msg, text: `📁 File ready: ${file.name}`, downloadUrl, isImage: file.mimeType.startsWith("image/") }
+              ? { ...msg, text: `File ready: ${file.name}`, downloadUrl, isImage: file.mimeType.startsWith("image/") }
               : msg
           )
         );
@@ -157,7 +157,7 @@ export default function Home() {
 
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.fileId === fileId ? { ...msg, text: "❌ File transfer canceled by sender." } : msg
+            msg.fileId === fileId ? { ...msg, text: "File transfer canceled by sender." } : msg
           )
         );
       }
@@ -298,7 +298,7 @@ export default function Home() {
     // Add upload card inside sender's chat messages state
     setMessages((prev) => [
       ...prev,
-      { id: msgId.current++, mine: true, text: `📁 Sending ${file.name}...`, fileId, isOutgoing: true }
+      { id: msgId.current++, mine: true, text: `Sending ${file.name}...`, fileId, isOutgoing: true }
     ]);
 
     peerRef.current.sendFile(file, fileId, (sentBytes) => {
@@ -310,7 +310,7 @@ export default function Home() {
           msg.fileId === fileId
             ? { 
                 ...msg, 
-                text: progress === 100 ? `✅ File sent: ${file.name}` : `📁 Sending ${file.name}: ${progress}%`,
+                text: progress === 100 ? `File sent: ${file.name}` : `Sending ${file.name}: ${progress}%`,
                 isOutgoing: progress !== 100 
               }
             : msg
@@ -324,7 +324,7 @@ export default function Home() {
 
     setMessages((prev) =>
       prev.map((msg) =>
-        msg.fileId === fileId ? { ...msg, text: "❌ File transfer canceled." } : msg
+        msg.fileId === fileId ? { ...msg, text: "File transfer canceled." } : msg
       )
     );
   }

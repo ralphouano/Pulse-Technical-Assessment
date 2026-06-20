@@ -18,7 +18,7 @@ export default function ConnectionPrompt({
   onDecline: () => void;
 }) {
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-6">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm">
       <div className="w-full max-w-xs rounded-2xl bg-zinc-900 p-6 text-center text-zinc-100 shadow-xl">
         <h2 className="text-lg font-semibold">{title}</h2>
         {subtitle && <p className="mt-1 text-sm text-zinc-400">{subtitle}</p>}

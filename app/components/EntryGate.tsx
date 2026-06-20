@@ -1,35 +1,32 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2, MapPin } from "lucide-react";
 
 export default function EntryGate({
   onReady,
 }: {
   onReady: (lat: number, lng: number) => void;
 }) {
-  const [status, setStatus] = useState<"idle" | "locating" | "error">("idle");
-  const [error, setError] = useState<string>("");
+  const [locating, setLocating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function enter() {
+    setLocating(true);
+    setError(null);
     if (!("geolocation" in navigator)) {
-      setStatus("error");
-      setError("Your browser doesn't support location access.");
+      setError("Geolocation is not supported by your browser.");
+      setLocating(false);
       return;
     }
-    setStatus("locating");
     navigator.geolocation.getCurrentPosition(
       (pos) => onReady(pos.coords.latitude, pos.coords.longitude),
       (err) => {
-        setStatus("error");
-        setError(
-          err.code === err.PERMISSION_DENIED
-            ? "Location permission is required to place you on the map."
-            : "Couldn't get your location. Please try again.",
-        );
+        console.warn(`Geolocation error (${err.code}): ${err.message}`);
+        setError("Couldn't get your location. Please check your browser's location permissions in the address bar and try again.");
+        setLocating(false);
       },
-      // High accuracy + maximumAge:0 forces a fresh fix (Wi-Fi/GPS scan)
-      // instead of reusing the browser's cached IP-based location.
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
     );
   }
 
@@ -44,13 +41,23 @@ export default function EntryGate({
 
       <button
         onClick={enter}
-        disabled={status === "locating"}
-        className="rounded-full bg-emerald-400 px-8 py-3 font-semibold text-zinc-950 transition hover:bg-emerald-300 disabled:opacity-60"
+        disabled={locating}
+        className="flex w-full max-w-[200px] items-center justify-center gap-2 rounded-full bg-emerald-400 px-8 py-3 font-semibold text-zinc-950 transition hover:bg-emerald-300 disabled:opacity-60"
       >
-        {status === "locating" ? "Locating…" : "Enter Pulse"}
+        {locating ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Locating...
+          </>
+        ) : (
+          <>
+            <MapPin className="h-5 w-5" />
+            Enter Pulse
+          </>
+        )}
       </button>
 
-      {status === "error" && (
+      {error && (
         <p className="max-w-sm text-center text-sm text-red-400">{error}</p>
       )}
 

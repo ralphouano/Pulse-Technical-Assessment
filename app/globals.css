@@ -44,26 +44,34 @@ body {
 
 /* The user's own "you are here" pin — small, sized like the dots. */
 .pulse-me {
+  font-size: 0; 
+  width: 18px;
+  height: 18px;
+  background: #3b82f6; /* Royal Blue */
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4), 0 0 15px rgba(59, 130, 246, 0.6);
   position: relative;
-  font-size: 18px;
-  line-height: 1;
-  cursor: default;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pulse-me-label {
   position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-bottom: 1px;
-  font-size: 10px;
+  bottom: 28px;
+  background: rgba(15, 23, 42, 0.85); /* Glassmorphism badge */
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #3b82f6;
   font-weight: 700;
-  color: #ffffff;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 0 5px;
+  font-size: 10px;
+  padding: 3px 8px;
   border-radius: 9999px;
   white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
 @keyframes pulse-ring {

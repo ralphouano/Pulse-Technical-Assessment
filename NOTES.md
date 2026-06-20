@@ -22,6 +22,7 @@ To make Pulse feel premium, intuitive, and genuinely beautiful, I completely ove
 - **Video Layout Redesign:** I moved the video panel away from a full-screen overlay into a split-screen view. *Thinking:* This keeps the chat panel accessible during video calls, preventing the user from feeling locked out of texting. I also added floating controls to toggle the mic/camera and end the call cleanly.
 - **Continuous Ringer UX:** I built a custom synthesizer using the Web Audio API that plays a continuous, looping ringtone when receiving chat requests or video calls. *Thinking:* A single beep is easily missed. Looping rings simulate a native phone call, making the app feel incredibly responsive. The ringer stops smoothly (ramping down volume) when accepted/declined to avoid harsh audio pops.
 - **SweetAlert2 Integration:** I replaced all native browser `alert()` popups with beautifully styled, dark-mode `SweetAlert2` modal dialogs. *Thinking:* Native alerts disrupt immersion and feel cheap.
+- **Premium UI & UX Overhaul:** I completely revamped the application's aesthetics to use a sleek, modern glassmorphic design (`backdrop-blur-xl`, subtle gradients). I replaced all placeholder text emojis (`📍`, `📎`, etc.) with professional SVG icons using `lucide-react`. The user's location is now represented by a custom CSS royal blue pulsing dot, and the entry gate features a dynamic SVG spinner. *Thinking:* A truly premium app shouldn't rely on unstyled emojis or generic browser defaults.
 
 ---
 
@@ -47,9 +48,9 @@ With the app running, I conducted a security review to protect users from malici
    - *Fix:* I decided to leave this as-is for the assessment, but in a production environment, I would enforce the use of a secure TURN proxy and configure the policy to only use relay servers (`iceTransportPolicy: "relay"`).
 
 ### Performance Audit
-1. **High Priority: Over-Aggressive Database Polling**
-   - *Issue:* `POLL_INTERVAL_MS` was set to `300ms`, generating 3+ queries per second per user. This would easily exhaust Serverless functions and Postgres connection pools.
-   - *Fix:* I increased the interval to `1800ms`, striking a balance between fast signaling and sustainable infrastructure.
+1. **High Priority: Over-Aggressive Database Polling vs. Connection Latency**
+   - *Issue:* `POLL_INTERVAL_MS` was set to `300ms`, generating 3+ queries per second per user. This would easily exhaust Serverless functions and Postgres connection pools. However, just increasing it to `1800ms` caused the connection negotiation to feel extremely sluggish because WebRTC state transitions require fast signaling round-trips.
+   - *Fix:* I implemented an **Adaptive Polling** system in `app/page.tsx`. When a user is actively requesting, receiving, or establishing a connection, the app rapidly polls the database every `300ms` to guarantee snappy WebRTC hole-punching. When the user is idle on the map or fully connected via P2P (where signaling is no longer needed), the polling relaxes to a highly efficient `1800ms`. This strikes the perfect balance between lightning-fast UX and sustainable infrastructure.
 2. **Medium Priority: React Re-render Thrashing**
    - *Issue:* The polling loop aggressively called `setPeers()` every tick, forcing the `WorldMap` DOM to constantly re-render even if no users joined/left.
    - *Fix:* I added a deep equality check (`JSON.stringify()`) to prevent state updates if the incoming data matches the existing peer list.

@@ -30,6 +30,7 @@ export default function WorldMap({
   const mapRef = useRef<MapboxMap | null>(null);
   const markersRef = useRef<Map<string, Marker>>(new Map());
   const meMarkerRef = useRef<Marker | null>(null);
+  const controlsAddedRef = useRef(false);
   const [ready, setReady] = useState(false);
 
   // Marker click handlers are bound once, so read the live click handler +
@@ -92,13 +93,21 @@ export default function WorldMap({
         const el = document.createElement("div");
         el.className = "pulse-me";
         el.title = "You are here";
-        el.innerHTML = `<span class="pulse-me-label">Me</span>📍`;
-        // anchor "bottom" → the pin's tip sits on the exact coordinate.
-        meMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: "bottom" })
+        el.innerHTML = `<span class="pulse-me-label">Me</span>`;
+        // anchor "center" so the pulsing dot is exactly centered.
+        meMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: "center" })
           .setLngLat([me.lng, me.lat])
           .addTo(map);
       } else {
         meMarkerRef.current.setLngLat([me.lng, me.lat]);
+      }
+      
+      // Add zoom controls
+      if (!controlsAddedRef.current && typeof map.addControl === 'function') {
+        try {
+          map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+          controlsAddedRef.current = true;
+        } catch (e) {}
       }
     })();
 

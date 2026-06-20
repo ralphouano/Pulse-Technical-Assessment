@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
+import { Paperclip, FileText, Download, Send, Video, PhoneOff } from "lucide-react";
 
 export interface ChatMessage {
   id: number;
@@ -119,11 +120,11 @@ export default function ChatPanel({
   }
 
   return (
-    <div className="absolute inset-y-0 right-0 z-20 flex w-full max-w-md flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100 shadow-2xl">
-      <header className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+    <div className="absolute inset-y-0 right-0 z-20 flex w-full max-w-md flex-col bg-zinc-950/85 backdrop-blur-xl border-l border-zinc-800/50 shadow-[0_0_30px_rgba(0,0,0,0.5)] text-zinc-100">
+      <header className="flex items-center justify-between border-b border-zinc-800/50 px-4 py-3 bg-zinc-950/50">
         <div>
-          <p className="font-semibold">Stranger</p>
-          <p className="text-xs text-zinc-500">
+          <p className="font-semibold text-lg">Stranger</p>
+          <p className="text-xs font-medium text-emerald-400">
             {connected ? "Connected" : "Connecting…"}
           </p>
         </div>
@@ -131,14 +132,16 @@ export default function ChatPanel({
           <button
             onClick={onStartVideo}
             disabled={!connected || videoBusy}
-            className="rounded-full border border-zinc-700 px-3 py-1.5 text-sm hover:border-zinc-500 disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-full border border-zinc-700/80 bg-zinc-800/50 px-3 py-1.5 text-sm hover:bg-zinc-700 hover:border-zinc-500 transition-colors disabled:opacity-40"
           >
+            <Video className="w-4 h-4" />
             Video
           </button>
           <button
             onClick={onEnd}
-            className="rounded-full bg-red-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-400"
+            className="flex items-center gap-1.5 rounded-full bg-red-500/90 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-400 transition-colors"
           >
+            <PhoneOff className="w-4 h-4" />
             End
           </button>
         </div>
@@ -160,10 +163,10 @@ export default function ChatPanel({
               className={`flex ${m.mine ? "justify-end" : "justify-start"} mb-2`}
             >
               <span
-                className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
+                className={`max-w-[80%] px-4 py-2 text-sm shadow-sm ${
                   m.mine
-                    ? "bg-emerald-400 text-zinc-950"
-                    : "bg-zinc-800 text-zinc-100"
+                    ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-emerald-950 font-medium rounded-t-2xl rounded-bl-2xl rounded-br-sm"
+                    : "bg-zinc-800/90 text-zinc-100 rounded-t-2xl rounded-br-2xl rounded-bl-sm"
                 }`}
               >
                 {/* Progress / Loading UI */}
@@ -202,10 +205,10 @@ export default function ChatPanel({
                     />
                     <a
                       href={m.downloadUrl}
-                      download={m.text.replace("📁 File ready: ", "")}
-                      className="text-xs text-emerald-400 hover:underline flex items-center gap-1 mt-1 justify-end font-semibold"
+                      download={m.text.replace("File ready: ", "").replace("📁 ", "")}
+                      className="text-xs text-emerald-950 hover:underline flex items-center gap-1 mt-1 justify-end font-bold"
                     >
-                      📥 Save Image
+                      <Download className="w-3 h-3" /> Save Image
                     </a>
                   </div>
                 )}
@@ -213,15 +216,15 @@ export default function ChatPanel({
                 {/* Complete Generic File CARD */}
                 {isGenericFile && (
                   <div className="flex items-center gap-3 p-1">
-                    <span className="text-xl">📄</span>
+                    <FileText className="w-6 h-6 opacity-80" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate text-xs">{m.text.replace("📁 File ready: ", "")}</p>
+                      <p className="font-semibold truncate text-xs">{m.text.replace("File ready: ", "").replace("📁 ", "")}</p>
                       <a
                         href={m.downloadUrl}
-                        download={m.text.replace("📁 File ready: ", "")}
-                        className="text-xs text-emerald-400 hover:underline font-bold"
+                        download={m.text.replace("File ready: ", "").replace("📁 ", "")}
+                        className={`text-xs hover:underline font-bold flex items-center gap-1 mt-0.5 ${m.mine ? "text-emerald-950" : "text-emerald-400"}`}
                       >
-                        Download File
+                        <Download className="w-3 h-3" /> Download File
                       </a>
                     </div>
                   </div>
@@ -233,7 +236,7 @@ export default function ChatPanel({
         <div ref={endRef} />
       </div>
 
-      <form onSubmit={submit} className="flex gap-2 border-t border-zinc-800 p-3 items-center">
+      <form onSubmit={submit} className="flex gap-2 border-t border-zinc-800/50 bg-zinc-900/40 p-4 items-center">
         <input
           type="file"
           ref={fileInputRef}
@@ -244,24 +247,25 @@ export default function ChatPanel({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={!connected}
-          className="p-2 rounded-full border border-zinc-700 hover:border-zinc-500 disabled:opacity-40 text-zinc-300 flex items-center justify-center cursor-pointer"
+          className="p-2.5 rounded-full border border-zinc-700/80 bg-zinc-800/50 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 flex items-center justify-center cursor-pointer transition-colors"
           title="Attach File"
         >
-          📎
+          <Paperclip className="w-4 h-4" />
         </button>
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={connected ? "Type a message…" : "Connecting…"}
           disabled={!connected}
-          className="flex-1 rounded-full bg-zinc-900 px-4 py-2 text-sm outline-none placeholder:text-zinc-600 focus:ring-1 focus:ring-emerald-400 disabled:opacity-50"
+          className="flex-1 rounded-full bg-zinc-800/80 border border-zinc-700/50 px-4 py-2.5 text-sm outline-none placeholder:text-zinc-500 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 disabled:opacity-50 transition-all text-white"
         />
         <button
           type="submit"
           disabled={!connected || !draft.trim()}
-          className="rounded-full bg-emerald-400 px-4 py-2 text-sm font-semibold text-zinc-950 disabled:opacity-40 cursor-pointer"
+          className="p-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-emerald-950 disabled:opacity-40 cursor-pointer transition-colors shadow-lg shadow-emerald-500/20"
+          title="Send Message"
         >
-          Send
+          <Send className="w-4 h-4" />
         </button>
       </form>
     </div>
