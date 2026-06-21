@@ -54,6 +54,17 @@ export default function Home() {
     _setVideo(v);
   };
 
+  const [chatCollapsed, _setChatCollapsed] = useState(false);
+  const chatCollapsedRef = useRef(chatCollapsed);
+  const setChatCollapsed = (val: boolean) => {
+    chatCollapsedRef.current = val;
+    _setChatCollapsed(val);
+    if (!val) {
+      setUnreadCount(0);
+    }
+  };
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const [activeImageId, setActiveImageId] = useState<number | null>(null);
 
   const viewableImages = messages.filter(
@@ -110,7 +121,12 @@ export default function Home() {
   }
 
   function addMessage(mine: boolean, text: string) {
-    if (!mine) playMessageBell();
+    if (!mine) {
+      playMessageBell();
+      if (chatCollapsedRef.current) {
+        setUnreadCount((c) => c + 1);
+      }
+    }
     setMessages((prev) => [...prev, { id: msgId.current++, mine, text }]);
   }
 
@@ -128,6 +144,8 @@ export default function Home() {
     setVideo("none");
     setMessages([]);
     setConn({ kind: "idle" });
+    setChatCollapsed(false);
+    setUnreadCount(0);
   }
 
   // Graceful error handling for UNAUTHORIZED
@@ -320,6 +338,8 @@ export default function Home() {
         setLocalStream(null);
         setRemoteStream(null);
         setVideo("none");
+        setChatCollapsed(false);
+        setUnreadCount(0);
         break;
     }
   }
@@ -406,6 +426,8 @@ export default function Home() {
     setLocalStream(null);
     setRemoteStream(null);
     setVideo("none");
+    setChatCollapsed(false);
+    setUnreadCount(0);
   }
 
   function sendFile(file: File) {
@@ -629,23 +651,6 @@ export default function Home() {
         />
       )}
 
-      {inChat && (
-        <ChatPanel
-          messages={messages}
-          connected={conn.kind === "connected"}
-          videoBusy={video !== "none"}
-          onSend={(text) => {
-            peerRef.current?.sendChat(text);
-            addMessage(true, text);
-          }}
-          onStartVideo={startVideoRequest}
-          onEnd={endConnection}
-          onSendFile={sendFile}
-          onCancelFile={cancelFileSend}
-          onImageClick={(id) => setActiveImageId(id)}
-        />
-      )}
-
       {video === "requesting" && (
         <div className="absolute bottom-24 left-1/2 z-30 -translate-x-1/2 rounded-full bg-zinc-800/90 px-4 py-2 text-sm text-zinc-100 shadow-lg backdrop-blur">
           Waiting for stranger to accept video…
@@ -663,12 +668,53 @@ export default function Home() {
         />
       )}
 
-      {video === "active" && (
-        <VideoPanel
-          localStream={localStream}
-          remoteStream={remoteStream}
-          onEnd={endVideo}
-        />
+      {inChat && (
+        <div className={`absolute inset-0 z-20 flex flex-col md:flex-row transition-all duration-300 ${
+          video === "active" ? "bg-zinc-950/95" : "pointer-events-none"
+        }`}>
+          {/* Video Panel Container */}
+          {video === "active" && (
+            <div className={`flex-1 min-h-0 relative bg-zinc-950 pointer-events-auto transition-all duration-300 ${
+              chatCollapsed ? "h-full w-full" : "h-[40vh] md:h-full w-full"
+            }`}>
+              <VideoPanel
+                localStream={localStream}
+                remoteStream={remoteStream}
+                onEnd={endVideo}
+                chatCollapsed={chatCollapsed}
+                onToggleChat={() => setChatCollapsed(!chatCollapsed)}
+                unreadCount={unreadCount}
+              />
+            </div>
+          )}
+
+          {/* Chat Panel Container */}
+          <div className={`
+            flex flex-col text-zinc-100 pointer-events-auto transition-all duration-300 ease-in-out overflow-hidden
+            ${video === "active"
+              ? chatCollapsed
+                ? "h-0 md:h-full w-full md:w-0 md:min-w-0 border-t-0 md:border-l-0 opacity-0"
+                : "h-[60vh] md:h-full w-full md:w-[28rem] md:min-w-[28rem] border-t md:border-t-0 md:border-l border-zinc-800/50 shadow-[0_0_30px_rgba(0,0,0,0.5)] bg-zinc-950/85 backdrop-blur-xl"
+              : "absolute inset-y-0 right-0 w-full md:w-[28rem] md:min-w-[28rem] border-l border-zinc-800/50 shadow-[0_0_30px_rgba(0,0,0,0.5)] bg-zinc-950/85 backdrop-blur-xl"
+            }
+          `}>
+            <ChatPanel
+              messages={messages}
+              connected={conn.kind === "connected"}
+              videoBusy={video !== "none"}
+              onSend={(text) => {
+                peerRef.current?.sendChat(text);
+                addMessage(true, text);
+              }}
+              onStartVideo={startVideoRequest}
+              onEnd={endConnection}
+              onSendFile={sendFile}
+              onCancelFile={cancelFileSend}
+              onImageClick={(id) => setActiveImageId(id)}
+              onCollapse={video === "active" ? () => setChatCollapsed(true) : undefined}
+            />
+          </div>
+        </div>
       )}
 
       {activeImage && (

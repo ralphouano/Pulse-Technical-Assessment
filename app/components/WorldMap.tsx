@@ -106,7 +106,7 @@ export default function WorldMap({
       // Add zoom controls
       if (!controlsAddedRef.current && typeof map.addControl === 'function') {
         try {
-          map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+          map.addControl(new mapboxgl.NavigationControl(), 'bottom-left');
           controlsAddedRef.current = true;
         } catch {}
       }

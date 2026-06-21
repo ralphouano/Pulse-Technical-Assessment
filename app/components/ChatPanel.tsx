@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
-import { Paperclip, FileText, Download, Send, Video, PhoneOff, Upload } from "lucide-react";
+import { Paperclip, FileText, Download, Send, Video, PhoneOff, Upload, Minimize2 } from "lucide-react";
 import { playFeedback } from "@/lib/audio";
 import { ALL_SAFE_EXTS, checkIsVideo, checkIsImage, getSafeMimeType } from "@/lib/file";
 
@@ -28,6 +28,7 @@ export default function ChatPanel({
   onSendFile,
   onCancelFile,
   onImageClick,
+  onCollapse,
 }: {
   messages: ChatMessage[];
   connected: boolean;
@@ -38,6 +39,7 @@ export default function ChatPanel({
   onSendFile: (file: File) => void;
   onCancelFile: (fileId: string) => void;
   onImageClick: (id: number) => void;
+  onCollapse?: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -205,7 +207,7 @@ export default function ChatPanel({
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="absolute inset-y-0 right-0 z-20 flex w-full max-w-md flex-col bg-zinc-950/85 backdrop-blur-xl border-l border-zinc-800/50 shadow-[0_0_30px_rgba(0,0,0,0.5)] text-zinc-100"
+      className="flex w-full h-full flex-col text-zinc-100 relative"
     >
       {isDragging && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-zinc-950/95 border-2 border-dashed border-emerald-500 rounded-2xl m-2 backdrop-blur-sm pointer-events-none">
@@ -221,7 +223,16 @@ export default function ChatPanel({
             {connected ? "Connected" : "Connecting…"}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700/80 bg-zinc-800/50 hover:bg-zinc-700 hover:border-zinc-500 transition-colors text-zinc-400 hover:text-zinc-100"
+              title="Minimize Chat"
+            >
+              <Minimize2 className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={onStartVideo}
             disabled={!connected || videoBusy}
