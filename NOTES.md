@@ -78,3 +78,8 @@ To get these tasks done, I used an AI coding assistant. Here is how I prompted t
 - **Strict Guidelines (CLAUDE.md / AGENTS.md):** I set up rules forcing the AI to keep code changes minimal and surgical (only edit what is needed, no random refactoring), verify success using actual command outputs before claiming completion, and follow a strict systematic debugging workflow (diagnose root cause first).
 - **Incremental and Iterative Instructions:** I guided the UI and functionality updates in small, sequential steps (e.g. shifting panel alignments, fixing specific received message rendering bugs, resolving buffer freezes, centering previews, repositioning map elements) rather than asking for massive changes all at once.
 
+---
+
+## Reflection & Submission
+
+Even though I was given about a week to finish this project, I decided to submit it early once I had built what I wanted. I didn't want to overload the app with too many features and risk stepping out of line with the core requirements or inviting unnecessary scope creep. While I still have a lot to learn in software development, I am happy to learn by doing and gain hands-on experience through tasks like this.
