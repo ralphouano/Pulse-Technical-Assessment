@@ -90,3 +90,9 @@ To get these tasks done, I used an AI coding assistant. Here is how I prompted t
 ## Reflection & Submission
 
 Even though I was given about a week to finish this project, I decided to submit it early once I had built what I wanted. I didn't want to overload the app with too many features and risk stepping out of line with the core requirements or inviting unnecessary scope creep. While I still have a lot to learn in software development, I am happy to learn by doing and gain hands-on experience through tasks like this.
+
+If I had more time and resources, I would have:
+- Switched from database polling to WebSockets so that user locations update in real-time without querying the database constantly.
+- Used map canvas layers instead of HTML markers to prevent lag when showing thousands of users on the map.
+- Set up a dedicated TURN server cluster to improve WebRTC connection reliability and hide user IP addresses.
+- Used a fast memory cache (like Redis) for temporary location signals to reduce database load.
