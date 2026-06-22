@@ -558,6 +558,7 @@ export default function Home() {
     if (phase !== "live" || !sessionId) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let backoffMs = POLL_INTERVAL_MS;
 
     const tick = async () => {
       try {
@@ -568,6 +569,8 @@ export default function Home() {
           return data.peers;
         });
         for (const s of data.signals) processSignalRef.current(s);
+        // Reset backoff on successful query
+        backoffMs = POLL_INTERVAL_MS;
       } catch (e) {
         const err = e as { message?: string };
         if (err.message === "UNAUTHORIZED") {
@@ -575,12 +578,15 @@ export default function Home() {
           handleAuthError(err);
           return;
         }
+        // Exponential backoff on database/server errors to prevent DDoS-ing the recovering DB
+        backoffMs = Math.min(30000, backoffMs * 2);
+        console.warn(`[Poller] Poll failed, backing off for ${backoffMs}ms:`, e);
       }
       if (active) {
-        // Adaptive polling: poll fast (300ms) during signaling to ensure snappy connections,
-        // but slow down (POLL_INTERVAL_MS) when idle or fully connected to save the DB.
+        // Adaptive polling: poll fast (300ms) during active signaling negotiation if no errors occurred
         const isNegotiating = ["requesting", "incoming", "connecting"].includes(connRef.current.kind);
-        timer = setTimeout(tick, isNegotiating ? 300 : POLL_INTERVAL_MS);
+        const delay = backoffMs > POLL_INTERVAL_MS ? backoffMs : (isNegotiating ? 300 : POLL_INTERVAL_MS);
+        timer = setTimeout(tick, delay);
       }
     };
     tick();

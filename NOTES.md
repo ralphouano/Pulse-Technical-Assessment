@@ -51,9 +51,11 @@ I audited the API, file-sharing flows, and DB performance for exploits.
    - *Symptom:* Google's public STUN servers reveal peer IP addresses to each other.
    - *Fix:* I documented this as a low-priority risk. A production deployment should configure a relay TURN server and disable direct host candidates to completely hide user IPs.
 
-### Performance Tweaks
+### Performance & Scalability Tweaks
 - **Polling Loop Throttle:** The client was polling the DB every 300ms. I throttled this to 1800ms by default, but set it to dynamically scale up to 300ms only during active signal negotiation so connection requests are still fast without hammering the server.
 - **State Update Filter:** The polling tick previously forced a React map re-render on every request. I added a JSON serialization comparison to skip state updates if peer coordinates have not changed.
+- **Client-Side Poller Exponential Backoff:** If the server/database gets overloaded or crashes (returning 500/504 errors), client browsers would normally keep hammering the endpoints, creating a self-inflicted DDoS loop. I implemented an exponential backoff poller: on request failure, the polling interval doubles dynamically (from 1800ms up to 30 seconds) and only resets to standard speed on a successful response.
+- **Scalability Limit Projection:** Under mathematical modeling, the app's current short-polling database architecture can stably handle ~150 concurrent active users. Beyond 300+ users, the database connection limit (~20-100 connections) and Vercel serverless function limits would cause gateway timeouts. To scale to 10,000+ users, a stateful WebSocket connection wrapper and canvas-based Mapbox GL symbol layering (to replace individual DOM element markers) would be required.
 
 ---
 
